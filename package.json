@@ -19,7 +19,7 @@
     "bmocha": "./bin/bmocha"
   },
   "scripts": {
-    "lint": "eslint bin/ test/ || exit 0",
+    "lint": "eslint bin/* test/ || exit 0",
     "test": "bmocha --reporter spec test/*-test.js"
   },
   "engines": {

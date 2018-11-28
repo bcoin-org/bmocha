@@ -21,6 +21,18 @@ const {
 const cwd = process.cwd();
 const {argv, stdout, stderr, exit} = process;
 
+/*
+ * Constants
+ */
+
+const defaults = {
+  timeout: 2000,
+  befores: [],
+  afters: [],
+  beforeEaches: [],
+  afterEaches: []
+};
+
 /**
  * Mocha
  */
@@ -71,17 +83,7 @@ class Mocha {
 
   async run() {
     for (const file of this.files) {
-      const name = Path.resolve(cwd, file);
-      const suite = new Suite(this);
-
-      try {
-        require(name);
-      } catch (e) {
-        if (e.code === 'MODULE_NOT_FOUND')
-          throw new Error(`Could not find ${file}.`);
-        throw e;
-      }
-
+      const suite = new Suite(this, file);
       await suite.run();
     }
 
@@ -107,15 +109,13 @@ class Mocha {
  */
 
 class Suite {
-  constructor(mocha) {
+  constructor(mocha, file) {
     this.mocha = mocha;
+    this.file = file;
+    this.current = null;
     this.descs = [];
     this.depth = 1;
     this.init();
-  }
-
-  init() {
-    global.describe = this.describe.bind(this);
   }
 
   describe(name, func) {
@@ -126,7 +126,24 @@ class Suite {
     desc.init();
   }
 
+  init() {
+    const name = Path.resolve(cwd, this.file);
+
+    global.describe = this.describe.bind(this);
+
+    try {
+      require(name);
+    } catch (e) {
+      if (e.code === 'MODULE_NOT_FOUND')
+        throw new Error(`Could not find ${this.file}.`);
+
+      throw e;
+    }
+  }
+
   async run() {
+    global.describe = this.describe.bind(this);
+
     for (const desc of this.descs)
       await desc.run();
   }
@@ -138,17 +155,21 @@ class Suite {
 
 class Desc {
   constructor(suite, name, func) {
+    const parent = suite.current || defaults;
+
     this.mocha = suite.mocha;
     this.suite = suite;
+    this.parent = suite.current;
     this.name = name;
     this.func = func;
     this.depth = suite.depth;
-    this.timeout = 2000;
-    this.befores = [];
-    this.afters = [];
-    this.beforeEaches = [];
-    this.afterEaches = [];
+    this.timeout = parent.timeout;
+    this.befores = parent.befores.slice();
+    this.afters = parent.afters.slice();
+    this.beforeEaches = parent.beforeEaches.slice();
+    this.afterEaches = parent.afterEaches.slice();
     this.tests = [];
+
     this.api = {
       timeout: (ms) => {
         this.timeout = ms >>> 0;
@@ -203,6 +224,13 @@ class Desc {
   }
 
   init() {
+    const current = this.suite.current;
+    const before = global.before;
+    const after = global.after;
+    const beforeEach = global.beforeEach;
+    const afterEach = global.afterEach;
+    const it = global.it;
+
     global.before = this.before.bind(this);
     global.after = this.after.bind(this);
     global.beforeEach = this.beforeEach.bind(this);
@@ -210,6 +238,7 @@ class Desc {
     global.it = this.it.bind(this);
 
     this.suite.depth += 1;
+    this.suite.current = this;
 
     try {
       this.func.call(this.api);
@@ -217,19 +246,30 @@ class Desc {
       this.push(this.name, e);
     }
 
+    this.suite.current = current;
     this.suite.depth -= 1;
+
+    global.before = before;
+    global.after = after;
+    global.beforeEach = beforeEach;
+    global.afterEach = afterEach;
+    global.it = it;
   }
 
   async run() {
+    let failed = false;
+
     this.log('');
     this.log(`${this.name}`);
 
     for (const before of this.befores) {
       try {
-        await before();
+        await this.runTest(before);
       } catch (e) {
-        this.push('before hook', e);
-        return;
+        if (!failed) {
+          this.push('before hook', e);
+          failed = true;
+        }
       }
     }
 
@@ -240,31 +280,31 @@ class Desc {
 
       for (const before of this.beforeEaches) {
         try {
-          await before();
+          await this.runTest(before);
         } catch (e) {
-          this.push(name, e);
-          failed = true;
-          break;
-        }
-      }
-
-      if (!failed) {
-        try {
-          await this.runTest(func);
-        } catch (e) {
-          this.push(name, e);
-          failed = true;
-        }
-      }
-
-      if (!failed) {
-        for (const after of this.afterEaches) {
-          try {
-            await after();
-          } catch (e) {
+          if (!failed) {
             this.push(name, e);
             failed = true;
-            break;
+          }
+        }
+      }
+
+      try {
+        await this.runTest(func);
+      } catch (e) {
+        if (!failed) {
+          this.push(name, e);
+          failed = true;
+        }
+      }
+
+      for (const after of this.afterEaches) {
+        try {
+          await this.runTest(after);
+        } catch (e) {
+          if (!failed) {
+            this.push(name, e);
+            failed = true;
           }
         }
       }
@@ -277,9 +317,9 @@ class Desc {
       } else {
         let suffix = '';
 
-        if (elapsed > 100)
+        if (elapsed >= 100)
           suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-        else if (elapsed > 20)
+        else if (elapsed >= 40)
           suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
 
         this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
@@ -289,10 +329,12 @@ class Desc {
 
     for (const after of this.afters) {
       try {
-        await after();
+        await this.runTest(after);
       } catch (e) {
-        this.push('after hook', e);
-        return;
+        if (!failed) {
+          this.push('after hook', e);
+          failed = true;
+        }
       }
     }
   }
@@ -388,8 +430,6 @@ function indent(str, depth) {
 
 function formatStack(stack) {
   let str = String(stack);
-
-  // str = str.replace(/^[^\0]*?\n +(at )/g, '\1');
 
   const index = str.indexOf('\n    at ');
 
