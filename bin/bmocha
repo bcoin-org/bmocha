@@ -1,0 +1,449 @@
+#!/usr/bin/env node
+
+/* eslint no-control-regex: "off" */
+
+'use strict';
+
+const assert = require('assert');
+const Path = require('path');
+
+const {
+  Date,
+  clearTimeout,
+  Error,
+  Math,
+  process,
+  Promise,
+  setTimeout,
+  String
+} = global;
+
+const cwd = process.cwd();
+const {argv, stdout, stderr, exit} = process;
+
+/**
+ * Mocha
+ */
+
+class Mocha {
+  constructor(files) {
+    this.files = files;
+    this.start = Date.now();
+    this.errors = [];
+    this.passing = 0;
+    this.failing = 0;
+  }
+
+  log(str, depth) {
+    if (!stdout.isTTY)
+      str = str.replace(/\x1b\[[^m]*?m/g, '');
+
+    str = indent(str, depth);
+
+    stdout.write(str + '\n');
+  }
+
+  error(id, desc, name, err) {
+    if (err == null || typeof err !== 'object')
+      err = String(err);
+
+    if (typeof err === 'string')
+      err = new Error(err);
+
+    const stack = formatStack(err.stack);
+
+    this.log(`${id}) ${desc}`, 1);
+    this.log(` ${name}:`, 3);
+    this.log('');
+    this.log(`\x1b[31m${err.name}: ${err.message}\x1b[m`, 3);
+
+    if (err.code === 'ERR_ASSERTION') {
+      this.log('\x1b[32m+ expected\x1b[m \x1b[31m- actual\x1b[m', 3);
+      this.log('');
+      this.log(`\x1b[31m-${err.actual}\x1b[m`, 3);
+      this.log(`\x1b[32m+${err.expected}\x1b[m`, 3);
+    }
+
+    this.log('');
+    this.log(`\x1b[90m${stack}\x1b[m`, 3);
+    this.log('');
+  }
+
+  async run() {
+    for (const file of this.files) {
+      const name = Path.resolve(cwd, file);
+      const suite = new Suite(this);
+
+      try {
+        require(name);
+      } catch (e) {
+        if (e.code === 'MODULE_NOT_FOUND')
+          throw new Error(`Could not find ${file}.`);
+        throw e;
+      }
+
+      await suite.run();
+    }
+
+    const elapsed = Math.ceil((Date.now() - this.start) / 1000);
+    const passed = `\x1b[32m${this.passing} passing\x1b[m`;
+    const time = `\x1b[90m(${elapsed}s)\x1b[m`;
+
+    this.log('');
+    this.log(`${passed} ${time}`, 1);
+
+    if (this.failing > 0)
+      this.log(`\x1b[31m${this.failing} failing\x1b[m`, 1);
+
+    this.log('');
+
+    for (const [i, [desc, name, err]] of this.errors.entries())
+      this.error(i + 1, desc, name, err);
+  }
+}
+
+/**
+ * Suite
+ */
+
+class Suite {
+  constructor(mocha) {
+    this.mocha = mocha;
+    this.descs = [];
+    this.depth = 1;
+    this.init();
+  }
+
+  init() {
+    global.describe = this.describe.bind(this);
+  }
+
+  describe(name, func) {
+    const desc = new Desc(this, name, func);
+
+    this.descs.push(desc);
+
+    desc.init();
+  }
+
+  async run() {
+    for (const desc of this.descs)
+      await desc.run();
+  }
+}
+
+/**
+ * Desc
+ */
+
+class Desc {
+  constructor(suite, name, func) {
+    this.mocha = suite.mocha;
+    this.suite = suite;
+    this.name = name;
+    this.func = func;
+    this.depth = suite.depth;
+    this.timeout = 2000;
+    this.befores = [];
+    this.afters = [];
+    this.beforeEaches = [];
+    this.afterEaches = [];
+    this.tests = [];
+    this.api = {
+      timeout: (ms) => {
+        this.timeout = ms >>> 0;
+      }
+    };
+  }
+
+  log(str) {
+    this.mocha.log(str, this.depth);
+  }
+
+  push(name, err) {
+    this.mocha.errors.push([this.name, name, err]);
+  }
+
+  get id() {
+    return this.mocha.errors.length;
+  }
+
+  pass() {
+    this.mocha.passing += 1;
+  }
+
+  fail() {
+    this.mocha.failing += 1;
+  }
+
+  before(func) {
+    assert(typeof func === 'function');
+    this.befores.push(func);
+  }
+
+  after(func) {
+    assert(typeof func === 'function');
+    this.afters.push(func);
+  }
+
+  beforeEach(func) {
+    assert(typeof func === 'function');
+    this.beforeEaches.push(func);
+  }
+
+  afterEach(func) {
+    assert(typeof func === 'function');
+    this.afterEaches.push(func);
+  }
+
+  it(name, func) {
+    assert(typeof name === 'string');
+    assert(typeof func === 'function');
+    this.tests.push([name.slice(0, 100), func]);
+  }
+
+  init() {
+    global.before = this.before.bind(this);
+    global.after = this.after.bind(this);
+    global.beforeEach = this.beforeEach.bind(this);
+    global.afterEach = this.afterEach.bind(this);
+    global.it = this.it.bind(this);
+
+    this.suite.depth += 1;
+
+    try {
+      this.func.call(this.api);
+    } catch (e) {
+      this.push(this.name, e);
+    }
+
+    this.suite.depth -= 1;
+  }
+
+  async run() {
+    this.log('');
+    this.log(`${this.name}`);
+
+    for (const before of this.befores) {
+      try {
+        await before();
+      } catch (e) {
+        this.push('before hook', e);
+        return;
+      }
+    }
+
+    for (const [name, func] of this.tests) {
+      const start = Date.now();
+
+      let failed = false;
+
+      for (const before of this.beforeEaches) {
+        try {
+          await before();
+        } catch (e) {
+          this.push(name, e);
+          failed = true;
+          break;
+        }
+      }
+
+      if (!failed) {
+        try {
+          await this.runTest(func);
+        } catch (e) {
+          this.push(name, e);
+          failed = true;
+        }
+      }
+
+      if (!failed) {
+        for (const after of this.afterEaches) {
+          try {
+            await after();
+          } catch (e) {
+            this.push(name, e);
+            failed = true;
+            break;
+          }
+        }
+      }
+
+      const elapsed = Date.now() - start;
+
+      if (failed) {
+        this.log(`  \x1b[31m${this.id}) ${name}\x1b[m `);
+        this.fail();
+      } else {
+        let suffix = '';
+
+        if (elapsed > 100)
+          suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
+        else if (elapsed > 20)
+          suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
+
+        this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
+        this.pass();
+      }
+    }
+
+    for (const after of this.afters) {
+      try {
+        await after();
+      } catch (e) {
+        this.push('after hook', e);
+        return;
+      }
+    }
+  }
+
+  runTest(func) {
+    return new Promise((resolve, reject) => {
+      let timeout = this.timeout;
+      let timer = null;
+
+      const ctx = {
+        timeout: (ms) => {
+          timeout = ms >>> 0;
+        }
+      };
+
+      const cleanup = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      };
+
+      if (func.length > 0) {
+        const cb = (err, result) => {
+          cleanup();
+
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          resolve(result);
+        };
+
+        try {
+          func.call(ctx, cb);
+        } catch (e) {
+          reject(e);
+          return;
+        }
+      } else {
+        let promise;
+
+        try {
+          promise = func.call(ctx);
+        } catch (e) {
+          reject(e);
+          return;
+        }
+
+        if (!(promise instanceof Promise)) {
+          resolve(promise);
+          return;
+        }
+
+        promise.then((result) => {
+          cleanup();
+          resolve(result);
+        }).catch((err) => {
+          cleanup();
+          reject(err);
+        });
+      }
+
+      if (timeout !== 0) {
+        timer = setTimeout(() => {
+          timer = null;
+          reject(new Error(`Timeout of ${timeout}ms exceeded.`));
+        }, timeout);
+      }
+    });
+  }
+}
+
+/*
+ * Helpers
+ */
+
+function indent(str, depth) {
+  if (depth == null)
+    depth = 0;
+
+  if (depth === 0)
+    return str;
+
+  let spaces = '';
+
+  for (let i = 0; i < depth * 2; i++)
+    spaces += ' ';
+
+  return str.replace(/^/gm, spaces);
+}
+
+function formatStack(stack) {
+  let str = String(stack);
+
+  // str = str.replace(/^[^\0]*?\n +(at )/g, '\1');
+
+  const index = str.indexOf('\n    at ');
+
+  if (index !== -1)
+    str = str.substring(index + 1);
+
+  return str.replace(/^[ \t]+/gm, '');
+}
+
+/*
+ * Main
+ */
+
+(async () => {
+  const files = [];
+
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+
+    switch (arg) {
+      case '-R':
+      case '--reporter':
+        i += 1;
+        break;
+      default:
+        if (arg.length === 0 || arg[0] === '-') {
+          console.error(`Invalid option: ${arg}`);
+          exit(1);
+        }
+        files.push(arg);
+        break;
+    }
+  }
+
+  process.on('unhandledRejection', (err, promise) => {
+    stderr.write('Unhandled rejection:\n');
+    stderr.write('\n');
+    if (err && err.stack)
+      err = String(err.stack);
+    stderr.write(err + '\n');
+    exit(1);
+  });
+
+  const mocha = new Mocha(files.sort());
+
+  await mocha.run();
+
+  if (mocha.failing > 0)
+    exit(mocha.failing);
+})().catch((err) => {
+  stderr.write('An error occurred outside of the test suite:\n');
+  stderr.write('\n');
+  if (err && err.stack)
+    err = String(err.stack);
+  stderr.write(err + '\n');
+  exit(1);
+});
