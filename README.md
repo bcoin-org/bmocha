@@ -4,8 +4,8 @@ Minimal reimplementation of mocha.
 
 ## Usage
 
-``` js
-const assert = require('bmocha');
+``` bash
+$ bmocha --reporter spec test/foo-test.js
 ```
 
 ## Contribution and License Agreement
