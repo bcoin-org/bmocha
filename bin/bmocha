@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/*!
+ * bmocha - minimal mocha implementation
+ * Copyright (c) 2018, Christopher Jeffrey (MIT License).
+ * https://github.com/chjj/bmocha
+ */
+
 /* eslint no-control-regex: "off" */
 
 'use strict';
@@ -526,7 +532,7 @@ process.on('unhandledRejection', (err, promise) => {
 
 (async () => {
   const files = [];
-  const excludes = [];
+  const excludes = new Set();
 
   let colors = null;
   let sort = false;
@@ -614,7 +620,7 @@ process.on('unhandledRejection', (err, promise) => {
         i += 1;
         break;
       case '--exclude':
-        excludes.push(Path.basename(next));
+        excludes.add(Path.basename(next));
         i += 1;
         break;
       default:
@@ -622,7 +628,7 @@ process.on('unhandledRejection', (err, promise) => {
           stderr.write(`Invalid option: ${arg}.\n`);
           exit(1);
         }
-        if (excludes.indexOf(Path.basename(arg)) === -1)
+        if (!excludes.has(Path.basename(arg)))
           files.push(arg);
         break;
     }
