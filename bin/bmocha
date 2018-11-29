@@ -39,20 +39,45 @@ const defaults = {
 
 class Mocha {
   constructor(files) {
+    assert(Array.isArray(files));
+
     this.files = files;
-    this.start = Date.now();
+    this.stdout = stdout;
+    this.colors = Boolean(stdout.isTTY);
+    this.bail = false;
+    this.grep = null;
+    this.fgrep = null;
+    this.invert = false;
     this.errors = [];
     this.passing = 0;
     this.failing = 0;
   }
 
+  matches(name) {
+    assert(typeof name === 'string');
+
+    let ret = false;
+
+    if (this.grep)
+      ret = this.grep.test(name);
+    else if (this.fgrep)
+      ret = name.indexOf(this.fgrep) !== -1;
+    else
+      ret = true;
+
+    if (this.invert)
+      ret = !ret;
+
+    return ret;
+  }
+
   log(str, depth) {
-    if (!stdout.isTTY)
+    if (!this.colors)
       str = str.replace(/\x1b\[[^m]*?m/g, '');
 
     str = indent(str, depth);
 
-    stdout.write(str + '\n');
+    this.stdout.write(str + '\n');
   }
 
   error(id, desc, name, err) {
@@ -61,6 +86,11 @@ class Mocha {
 
     if (typeof err === 'string')
       err = new Error(err);
+
+    assert((id >>> 0) === id);
+    assert(typeof desc === 'string');
+    assert(typeof name === 'string');
+    assert(err && typeof err === 'object');
 
     const stack = formatStack(err.stack);
 
@@ -82,12 +112,14 @@ class Mocha {
   }
 
   async run() {
+    const start = Date.now();
+
     for (const file of this.files) {
       const suite = new Suite(this, file);
       await suite.run();
     }
 
-    const elapsed = Math.ceil((Date.now() - this.start) / 1000);
+    const elapsed = Math.ceil((Date.now() - start) / 1000);
     const passed = `\x1b[32m${this.passing} passing\x1b[m`;
     const time = `\x1b[90m(${elapsed}s)\x1b[m`;
 
@@ -110,6 +142,9 @@ class Mocha {
 
 class Suite {
   constructor(mocha, file) {
+    assert(mocha instanceof Mocha);
+    assert(typeof file === 'string');
+
     this.mocha = mocha;
     this.file = file;
     this.current = null;
@@ -130,6 +165,9 @@ class Suite {
     const name = Path.resolve(cwd, this.file);
 
     global.describe = this.describe.bind(this);
+
+    if (require.cache)
+      delete require.cache[name];
 
     try {
       require(name);
@@ -155,6 +193,10 @@ class Suite {
 
 class Desc {
   constructor(suite, name, func) {
+    assert(suite instanceof Suite);
+    assert(typeof name === 'string');
+    assert(typeof func === 'function');
+
     const parent = suite.current || defaults;
 
     this.mocha = suite.mocha;
@@ -182,6 +224,11 @@ class Desc {
   }
 
   push(name, err) {
+    assert(typeof name === 'string');
+
+    if (this.mocha.bail)
+      throw err;
+
     this.mocha.errors.push([this.name, name, err]);
   }
 
@@ -274,6 +321,9 @@ class Desc {
     }
 
     for (const [name, func] of this.tests) {
+      if (!this.mocha.matches(name))
+        continue;
+
       const start = Date.now();
 
       let failed = false;
@@ -309,22 +359,23 @@ class Desc {
         }
       }
 
-      const elapsed = Date.now() - start;
-
       if (failed) {
         this.log(`  \x1b[31m${this.id}) ${name}\x1b[m `);
         this.fail();
-      } else {
-        let suffix = '';
-
-        if (elapsed >= 100)
-          suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-        else if (elapsed >= 40)
-          suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
-
-        this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
-        this.pass();
+        continue;
       }
+
+      const elapsed = Date.now() - start;
+
+      let suffix = '';
+
+      if (elapsed >= 100)
+        suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
+      else if (elapsed >= 40)
+        suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
+
+      this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
+      this.pass();
     }
 
     for (const after of this.afters) {
@@ -339,7 +390,9 @@ class Desc {
     }
   }
 
-  runTest(func) {
+  async runTest(func) {
+    assert(typeof func === 'function');
+
     return new Promise((resolve, reject) => {
       let timeout = this.timeout;
       let called = false;
@@ -433,6 +486,9 @@ function indent(str, depth) {
   if (depth == null)
     depth = 0;
 
+  assert(typeof str === 'string');
+  assert((depth >>> 0) === depth);
+
   if (depth === 0)
     return str;
 
@@ -461,21 +517,104 @@ function formatStack(stack) {
 
 (async () => {
   const files = [];
+  const excludes = [];
+
+  let colors = null;
+  let sort = false;
+  let bail = false;
+  let grep = null;
+  let fgrep = null;
+  let invert = false;
+  let doExit = false;
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
 
+    let next = '';
+
+    if (i + 1 < argv.length)
+      next = argv[i + 1];
+
     switch (arg) {
+      case '-c':
+      case '--colors':
+        colors = true;
+        break;
+      case '-C':
+      case '--no-colors':
+        colors = false;
+        break;
+      case '-O':
+      case '--reporter-options':
+        i += 1;
+        break;
       case '-R':
       case '--reporter':
+        i += 1;
+        if (next !== 'spec') {
+          stderr.write(`Invalid reporter: ${next}.\n`);
+          exit(1);
+        }
+        break;
+      case '-S':
+      case '--sort':
+        sort = true;
+        break;
+      case '-b':
+      case '--bail':
+        bail = true;
+        break;
+      case '-g':
+      case '--grep':
+        grep = new RegExp(next);
+        i += 1;
+        break;
+      case '-f':
+      case '--fgrep':
+        fgrep = next;
+        i += 1;
+        break;
+      case '-i':
+      case '--invert':
+        invert = true;
+        break;
+      case '-r':
+      case '--require':
+        if (next[0] === '.')
+          next = Path.resolve(cwd, next);
+        require(next);
+        i += 1;
+        break;
+      case '-s':
+      case '--slow':
+        i += 1;
+        break;
+      case '-t':
+      case '--timeout':
+        defaults.timeout = next >>> 0;
+        i += 1;
+        break;
+      case '--no-timeouts':
+        defaults.timeout = 0;
+        break;
+      case '--exit':
+        doExit = true;
+        break;
+      case '--file':
+        files.unshift(next);
+        i += 1;
+        break;
+      case '--exclude':
+        excludes.push(Path.basename(next));
         i += 1;
         break;
       default:
         if (arg.length === 0 || arg[0] === '-') {
-          console.error(`Invalid option: ${arg}`);
+          stderr.write(`Invalid option: ${arg}.\n`);
           exit(1);
         }
-        files.push(arg);
+        if (excludes.indexOf(Path.basename(arg)) === -1)
+          files.push(arg);
         break;
     }
   }
@@ -489,12 +628,26 @@ function formatStack(stack) {
     exit(1);
   });
 
-  const mocha = new Mocha(files.sort());
+  if (sort)
+    files.sort();
+
+  const mocha = new Mocha(files);
+
+  if (colors != null)
+    mocha.colors = colors;
+
+  mocha.bail = bail;
+  mocha.grep = grep;
+  mocha.fgrep = fgrep;
+  mocha.invert = invert;
 
   await mocha.run();
 
   if (mocha.failing > 0)
     exit(mocha.failing);
+
+  if (doExit)
+    exit(0);
 })().catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
