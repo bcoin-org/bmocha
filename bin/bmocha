@@ -515,6 +515,15 @@ function formatStack(stack) {
  * Main
  */
 
+process.on('unhandledRejection', (err, promise) => {
+  stderr.write('Unhandled rejection:\n');
+  stderr.write('\n');
+  if (err && err.stack)
+    err = String(err.stack);
+  stderr.write(err + '\n');
+  exit(1);
+});
+
 (async () => {
   const files = [];
   const excludes = [];
@@ -550,11 +559,11 @@ function formatStack(stack) {
         break;
       case '-R':
       case '--reporter':
-        i += 1;
         if (next !== 'spec') {
           stderr.write(`Invalid reporter: ${next}.\n`);
           exit(1);
         }
+        i += 1;
         break;
       case '-S':
       case '--sort':
@@ -618,15 +627,6 @@ function formatStack(stack) {
         break;
     }
   }
-
-  process.on('unhandledRejection', (err, promise) => {
-    stderr.write('Unhandled rejection:\n');
-    stderr.write('\n');
-    if (err && err.stack)
-      err = String(err.stack);
-    stderr.write(err + '\n');
-    exit(1);
-  });
 
   if (sort)
     files.sort();
