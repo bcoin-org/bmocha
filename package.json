@@ -1,7 +1,7 @@
 {
   "name": "bmocha",
   "version": "0.0.1",
-  "description": "Minimal reimplementation of mocha",
+  "description": "Minimal implementation of mocha",
   "keywords": [
     "mocha",
     "test",

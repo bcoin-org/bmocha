@@ -1,6 +1,6 @@
 # bmocha
 
-Minimal reimplementation of mocha.
+Minimal implementation of mocha.
 
 ## Usage
 
