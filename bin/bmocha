@@ -31,12 +31,21 @@ const {
 const cwd = process.cwd();
 const {argv, stdout, stderr, exit} = process;
 
+/*
+ * Constants
+ */
+
+const nullStream = {
+  write: _ => true,
+  isTTY: true
+};
+
 /**
  * Mocha
  */
 
 class Mocha {
-  constructor(stream = stdout) {
+  constructor(stream = nullStream) {
     assert(stream && typeof stream.write === 'function');
 
     this.stream = stream;
@@ -518,7 +527,7 @@ process.on('unhandledRejection', (err, promise) => {
 (async () => {
   const files = [];
   const excludes = new Set();
-  const mocha = new Mocha();
+  const mocha = new Mocha(stdout);
 
   let sort = false;
 
