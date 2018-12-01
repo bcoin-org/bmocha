@@ -36,7 +36,7 @@ const {argv, stdout, stderr, exit} = process;
  */
 
 class Mocha {
-  constructor(files) {
+  constructor(files = []) {
     assert(Array.isArray(files));
 
     this.files = files;
@@ -46,7 +46,10 @@ class Mocha {
     this.grep = null;
     this.fgrep = null;
     this.invert = false;
+    this.depth = -1;
     this.timeout = 2000;
+    this.beforeEaches = [];
+    this.afterEaches = [];
     this.errors = [];
     this.passing = 0;
     this.failing = 0;
@@ -93,8 +96,13 @@ class Mocha {
 
     const stack = formatStack(err.stack);
 
-    this.log(`${id}) ${desc}`, 1);
-    this.log(`${name}:`, 3);
+    if (desc) {
+      this.log(`${id}) ${desc}`, 1);
+      this.log(`${name}:`, 3);
+    } else {
+      this.log(`${id}) ${name}:`, 1);
+    }
+
     this.log('');
     this.log(`\x1b[31m${err.name}: ${err.message}\x1b[m`, 3);
 
@@ -113,8 +121,12 @@ class Mocha {
   async run() {
     const start = Date.now();
 
+    this.errors = [];
+    this.passing = 0;
+    this.failing = 0;
+
     for (const file of this.files) {
-      const suite = new Suite(this, file);
+      const suite = Suite.fromFile(this, file);
 
       if (!await suite.run())
         break;
@@ -142,87 +154,24 @@ class Mocha {
  */
 
 class Suite {
-  constructor(mocha, file) {
+  constructor(mocha, parent, name, func) {
     assert(mocha instanceof Mocha);
-    assert(typeof file === 'string');
-
-    this.mocha = mocha;
-    this.file = file;
-    this.descs = [];
-    this.depth = 0;
-    this.timeout = this.mocha.timeout;
-    this.beforeEaches = [];
-    this.afterEaches = [];
-
-    this.init();
-  }
-
-  describe(name, func) {
-    const {depth} = this;
-    const desc = new Desc(this, this, name, func, depth + 1);
-
-    this.descs.push(desc);
-
-    desc.init();
-  }
-
-  init() {
-    const file = Path.resolve(cwd, this.file);
-    const describe = global.describe;
-
-    global.describe = this.describe.bind(this);
-
-    if (require.cache)
-      delete require.cache[file];
-
-    try {
-      require(file);
-    } catch (e) {
-      if (e.code === 'MODULE_NOT_FOUND')
-        throw new Error(`Could not find ${this.file}.`);
-
-      throw e;
-    }
-
-    global.describe = describe;
-  }
-
-  async run() {
-    for (const desc of this.descs) {
-      if (!await desc.run())
-        return false;
-    }
-
-    return true;
-  }
-}
-
-/**
- * Desc
- */
-
-class Desc {
-  constructor(suite, parent, name, func, depth) {
-    assert(suite instanceof Suite);
-    assert((parent instanceof Suite)
-        || (parent instanceof Desc));
+    assert((parent instanceof Mocha)
+        || (parent instanceof Suite));
     assert(typeof name === 'string');
     assert(typeof func === 'function');
-    assert((depth >>> 0) === depth);
 
-    this.mocha = suite.mocha;
-    this.suite = suite;
-    this.parent = parent;
+    this.mocha = mocha;
     this.name = name;
     this.func = func;
-    this.depth = depth;
+    this.depth = parent.depth + 1;
     this.timeout = parent.timeout;
     this.befores = [];
     this.afters = [];
     this.beforeEaches = parent.beforeEaches.slice();
     this.afterEaches = parent.afterEaches.slice();
     this.tests = [];
-    this.descs = [];
+    this.suites = [];
 
     this.api = {
       timeout: (ms) => {
@@ -236,12 +185,12 @@ class Desc {
   }
 
   describe(name, func) {
-    const {suite, depth} = this;
-    const desc = new Desc(suite, this, name, func, depth + 1);
+    const {mocha} = this;
+    const suite = new Suite(mocha, this, name, func);
 
-    this.descs.push(desc);
+    this.suites.push(suite);
 
-    desc.init();
+    suite.init();
   }
 
   before(func) {
@@ -328,12 +277,14 @@ class Desc {
 
   async run() {
     if (this.tests.length === 0
-        && this.descs.length === 0) {
+        && this.suites.length === 0) {
       return true;
     }
 
     this.log('');
-    this.log(`${this.name}`);
+
+    if (this.name)
+      this.log(`${this.name}`);
 
     for (const before of this.befores) {
       try {
@@ -378,8 +329,8 @@ class Desc {
       }
     }
 
-    for (const desc of this.descs) {
-      if (!await desc.run())
+    for (const suite of this.suites) {
+      if (!await suite.run())
         return false;
     }
 
@@ -483,6 +434,13 @@ class Desc {
       }
     });
   }
+
+  static fromFile(mocha, file) {
+    const func = wrapRequire(file);
+    const suite = new this(mocha, mocha, '', func);
+    suite.init();
+    return suite;
+  }
 }
 
 /*
@@ -516,6 +474,26 @@ function formatStack(stack) {
     str = str.substring(index + 1);
 
   return str.replace(/^ +/gm, '');
+}
+
+function wrapRequire(file) {
+  assert(typeof file === 'string');
+
+  return () => {
+    const path = Path.resolve(cwd, file);
+
+    if (require.cache)
+      delete require.cache[path];
+
+    try {
+      require(path);
+    } catch (e) {
+      if (e.code === 'MODULE_NOT_FOUND')
+        throw new Error(`Could not find ${file}.`);
+
+      throw e;
+    }
+  };
 }
 
 /*
