@@ -42,10 +42,12 @@ class Mocha {
     this.files = files;
     this.stdout = stdout;
     this.colors = Boolean(stdout.isTTY);
+    this.sort = false;
     this.bail = false;
     this.grep = null;
     this.fgrep = null;
     this.invert = false;
+    this.exit = false;
     this.depth = -1;
     this.timeout = 2000;
     this.beforeEaches = [];
@@ -125,6 +127,9 @@ class Mocha {
     this.passing = 0;
     this.failing = 0;
 
+    if (this.sort)
+      this.files.sort();
+
     for (const file of this.files) {
       const suite = Suite.fromFile(this, file);
 
@@ -146,6 +151,11 @@ class Mocha {
 
     for (const [i, [desc, name, err]] of this.errors.entries())
       this.error(i + 1, desc, name, err);
+
+    if (this.failing > 0)
+      return this.failing;
+
+    return this.exit ? 0 : -1;
   }
 }
 
@@ -512,15 +522,7 @@ process.on('unhandledRejection', (err, promise) => {
 (async () => {
   const files = [];
   const excludes = new Set();
-
-  let colors = Boolean(stdout.isTTY);
-  let sort = false;
-  let bail = false;
-  let grep = null;
-  let fgrep = null;
-  let invert = false;
-  let timeout = 2000;
-  let doExit = false;
+  const mocha = new Mocha();
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -533,11 +535,11 @@ process.on('unhandledRejection', (err, promise) => {
     switch (arg) {
       case '-c':
       case '--colors':
-        colors = true;
+        mocha.colors = true;
         break;
       case '-C':
       case '--no-colors':
-        colors = false;
+        mocha.colors = false;
         break;
       case '-O':
       case '--reporter-options':
@@ -553,25 +555,25 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-S':
       case '--sort':
-        sort = true;
+        mocha.sort = true;
         break;
       case '-b':
       case '--bail':
-        bail = true;
+        mocha.bail = true;
         break;
       case '-g':
       case '--grep':
-        grep = new RegExp(next);
+        mocha.grep = new RegExp(next);
         i += 1;
         break;
       case '-f':
       case '--fgrep':
-        fgrep = next;
+        mocha.fgrep = next;
         i += 1;
         break;
       case '-i':
       case '--invert':
-        invert = true;
+        mocha.invert = true;
         break;
       case '-r':
       case '--require':
@@ -586,17 +588,17 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-t':
       case '--timeout':
-        timeout = next >>> 0;
+        mocha.timeout = next >>> 0;
         i += 1;
         break;
       case '--no-timeouts':
-        timeout = 0;
+        mocha.timeout = 0;
         break;
       case '--exit':
-        doExit = true;
+        mocha.exit = true;
         break;
       case '--file':
-        files.unshift(next);
+        mocha.files.unshift(next);
         i += 1;
         break;
       case '--exclude':
@@ -609,30 +611,15 @@ process.on('unhandledRejection', (err, promise) => {
           exit(1);
         }
         if (!excludes.has(Path.basename(arg)))
-          files.push(arg);
+          mocha.files.push(arg);
         break;
     }
   }
 
-  if (sort)
-    files.sort();
+  const code = await mocha.run();
 
-  const mocha = new Mocha(files);
-
-  mocha.colors = colors;
-  mocha.bail = bail;
-  mocha.grep = grep;
-  mocha.fgrep = fgrep;
-  mocha.invert = invert;
-  mocha.timeout = timeout;
-
-  await mocha.run();
-
-  if (mocha.failing > 0)
-    exit(mocha.failing);
-
-  if (doExit)
-    exit(0);
+  if (code !== -1)
+    exit(code);
 })().catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
