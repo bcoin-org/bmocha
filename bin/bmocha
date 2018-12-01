@@ -14,12 +14,16 @@ const assert = require('assert');
 const Path = require('path');
 
 const {
+  Array,
+  Boolean,
   Date,
   clearTimeout,
   Error,
   Math,
+  Number,
   process,
   Promise,
+  RegExp,
   setTimeout,
   String
 } = global;
@@ -90,7 +94,7 @@ class Mocha {
     const stack = formatStack(err.stack);
 
     this.log(`${id}) ${desc}`, 1);
-    this.log(` ${name}:`, 3);
+    this.log(`${name}:`, 3);
     this.log('');
     this.log(`\x1b[31m${err.name}: ${err.message}\x1b[m`, 3);
 
@@ -512,7 +516,7 @@ function formatStack(stack) {
   if (index !== -1)
     str = str.substring(index + 1);
 
-  return str.replace(/^[ \t]+/gm, '');
+  return str.replace(/^ +/gm, '');
 }
 
 /*
