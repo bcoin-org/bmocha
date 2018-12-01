@@ -266,7 +266,7 @@ class Suite {
     else if (elapsed >= 40)
       suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
 
-    this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
+    this.log(`  \x1b[32m\u2713\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
     this.mocha.passing += 1;
   }
 
