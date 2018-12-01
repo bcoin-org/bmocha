@@ -144,9 +144,8 @@ class Suite {
 
     this.mocha = mocha;
     this.file = file;
-    this.current = this;
     this.descs = [];
-    this.depth = 1;
+    this.depth = 0;
     this.timeout = this.mocha.timeout;
     this.beforeEaches = [];
     this.afterEaches = [];
@@ -155,30 +154,33 @@ class Suite {
   }
 
   describe(name, func) {
-    const parent = this.current;
-    const desc = new Desc(this, parent, name, func);
+    const {depth} = this;
+    const desc = new Desc(this, this, name, func, depth + 1);
 
-    parent.descs.push(desc);
+    this.descs.push(desc);
 
     desc.init();
   }
 
   init() {
-    const name = Path.resolve(cwd, this.file);
+    const file = Path.resolve(cwd, this.file);
+    const describe = global.describe;
 
     global.describe = this.describe.bind(this);
 
     if (require.cache)
-      delete require.cache[name];
+      delete require.cache[file];
 
     try {
-      require(name);
+      require(file);
     } catch (e) {
       if (e.code === 'MODULE_NOT_FOUND')
         throw new Error(`Could not find ${this.file}.`);
 
       throw e;
     }
+
+    global.describe = describe;
   }
 
   async run() {
@@ -196,19 +198,20 @@ class Suite {
  */
 
 class Desc {
-  constructor(suite, parent, name, func) {
+  constructor(suite, parent, name, func, depth) {
     assert(suite instanceof Suite);
     assert((parent instanceof Suite)
         || (parent instanceof Desc));
     assert(typeof name === 'string');
     assert(typeof func === 'function');
+    assert((depth >>> 0) === depth);
 
     this.mocha = suite.mocha;
     this.suite = suite;
     this.parent = parent;
     this.name = name;
     this.func = func;
-    this.depth = suite.depth;
+    this.depth = depth;
     this.timeout = parent.timeout;
     this.befores = [];
     this.afters = [];
@@ -226,6 +229,15 @@ class Desc {
 
   log(str) {
     this.mocha.log(str, this.depth);
+  }
+
+  describe(name, func) {
+    const {suite, depth} = this;
+    const desc = new Desc(suite, this, name, func, depth + 1);
+
+    this.descs.push(desc);
+
+    desc.init();
   }
 
   before(func) {
@@ -255,27 +267,23 @@ class Desc {
   }
 
   init() {
-    const current = this.suite.current;
+    const describe = global.describe;
     const before = global.before;
     const after = global.after;
     const beforeEach = global.beforeEach;
     const afterEach = global.afterEach;
     const it = global.it;
 
+    global.describe = this.describe.bind(this);
     global.before = this.before.bind(this);
     global.after = this.after.bind(this);
     global.beforeEach = this.beforeEach.bind(this);
     global.afterEach = this.afterEach.bind(this);
     global.it = this.it.bind(this);
 
-    this.suite.depth += 1;
-    this.suite.current = this;
-
     this.func.call(this.api);
 
-    this.suite.current = current;
-    this.suite.depth -= 1;
-
+    global.describe = describe;
     global.before = before;
     global.after = after;
     global.beforeEach = beforeEach;
