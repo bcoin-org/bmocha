@@ -267,7 +267,9 @@ class Desc {
   it(name, func) {
     assert(typeof name === 'string');
     assert(typeof func === 'function');
-    this.tests.push([name.substring(0, 300), func]);
+
+    if (this.mocha.matches(name))
+      this.tests.push([name.substring(0, 300), func]);
   }
 
   init() {
@@ -342,9 +344,6 @@ class Desc {
     }
 
     for (const [name, func] of this.tests) {
-      if (!this.mocha.matches(name))
-        continue;
-
       for (const before of this.beforeEaches) {
         try {
           await this.runTest(before);
