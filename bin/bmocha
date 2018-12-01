@@ -321,15 +321,17 @@ class Suite {
 
       const start = Date.now();
 
+      let failed = false;
       let err = null;
 
       try {
         await this.runTest(func);
       } catch (e) {
+        failed = true;
         err = e;
       }
 
-      if (err) {
+      if (failed) {
         if (!this.fail(name, err))
           return false;
       } else {
