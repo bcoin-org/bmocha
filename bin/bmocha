@@ -36,13 +36,11 @@ const {argv, stdout, stderr, exit} = process;
  */
 
 class Mocha {
-  constructor(files = []) {
-    assert(Array.isArray(files));
+  constructor(stream = stdout) {
+    assert(stream && typeof stream.write === 'function');
 
-    this.files = files;
-    this.stdout = stdout;
-    this.colors = Boolean(stdout.isTTY);
-    this.sort = false;
+    this.stream = stream;
+    this.colors = Boolean(stream.isTTY);
     this.bail = false;
     this.grep = null;
     this.fgrep = null;
@@ -81,7 +79,7 @@ class Mocha {
 
     str = indent(str, depth);
 
-    this.stdout.write(str + '\n');
+    this.stream.write(str + '\n');
   }
 
   error(id, desc, name, err) {
@@ -120,18 +118,17 @@ class Mocha {
     this.log('');
   }
 
-  async run() {
+  async run(funcs) {
+    assert(Array.isArray(funcs));
+
     const start = Date.now();
 
     this.errors = [];
     this.passing = 0;
     this.failing = 0;
 
-    if (this.sort)
-      this.files.sort();
-
-    for (const file of this.files) {
-      const suite = Suite.fromFile(this, file);
+    for (const func of funcs) {
+      const suite = Suite.from(this, func);
 
       if (!await suite.run())
         break;
@@ -445,8 +442,7 @@ class Suite {
     });
   }
 
-  static fromFile(mocha, file) {
-    const func = wrapRequire(file);
+  static from(mocha, func) {
     const suite = new this(mocha, mocha, '', func);
     suite.init();
     return suite;
@@ -524,6 +520,8 @@ process.on('unhandledRejection', (err, promise) => {
   const excludes = new Set();
   const mocha = new Mocha();
 
+  let sort = false;
+
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
 
@@ -555,7 +553,7 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-S':
       case '--sort':
-        mocha.sort = true;
+        sort = true;
         break;
       case '-b':
       case '--bail':
@@ -598,7 +596,7 @@ process.on('unhandledRejection', (err, promise) => {
         mocha.exit = true;
         break;
       case '--file':
-        mocha.files.unshift(next);
+        files.unshift(next);
         i += 1;
         break;
       case '--exclude':
@@ -611,12 +609,16 @@ process.on('unhandledRejection', (err, promise) => {
           exit(1);
         }
         if (!excludes.has(Path.basename(arg)))
-          mocha.files.push(arg);
+          files.push(arg);
         break;
     }
   }
 
-  const code = await mocha.run();
+  if (sort)
+    files.sort();
+
+  const funcs = files.map(file => wrapRequire(file));
+  const code = await mocha.run(funcs);
 
   if (code !== -1)
     exit(code);
