@@ -27,18 +27,6 @@ const {
 const cwd = process.cwd();
 const {argv, stdout, stderr, exit} = process;
 
-/*
- * Constants
- */
-
-const defaults = {
-  timeout: 2000,
-  befores: [],
-  afters: [],
-  beforeEaches: [],
-  afterEaches: []
-};
-
 /**
  * Mocha
  */
@@ -54,6 +42,7 @@ class Mocha {
     this.grep = null;
     this.fgrep = null;
     this.invert = false;
+    this.timeout = 2000;
     this.errors = [];
     this.passing = 0;
     this.failing = 0;
@@ -62,14 +51,12 @@ class Mocha {
   matches(name) {
     assert(typeof name === 'string');
 
-    let ret = false;
+    let ret = !this.invert;
 
     if (this.grep)
       ret = this.grep.test(name);
     else if (this.fgrep)
       ret = name.indexOf(this.fgrep) !== -1;
-    else
-      ret = true;
 
     if (this.invert)
       ret = !ret;
@@ -78,6 +65,8 @@ class Mocha {
   }
 
   log(str, depth) {
+    assert(typeof str === 'string');
+
     if (!this.colors)
       str = str.replace(/\x1b\[[^m]*?m/g, '');
 
@@ -122,7 +111,9 @@ class Mocha {
 
     for (const file of this.files) {
       const suite = new Suite(this, file);
-      await suite.run();
+
+      if (!await suite.run())
+        break;
     }
 
     const elapsed = Math.ceil((Date.now() - start) / 1000);
@@ -153,16 +144,21 @@ class Suite {
 
     this.mocha = mocha;
     this.file = file;
-    this.current = null;
+    this.current = this;
     this.descs = [];
     this.depth = 1;
+    this.timeout = this.mocha.timeout;
+    this.beforeEaches = [];
+    this.afterEaches = [];
+
     this.init();
   }
 
   describe(name, func) {
-    const desc = new Desc(this, name, func);
+    const parent = this.current;
+    const desc = new Desc(this, parent, name, func);
 
-    this.descs.push(desc);
+    parent.descs.push(desc);
 
     desc.init();
   }
@@ -186,10 +182,12 @@ class Suite {
   }
 
   async run() {
-    global.describe = this.describe.bind(this);
+    for (const desc of this.descs) {
+      if (!await desc.run())
+        return false;
+    }
 
-    for (const desc of this.descs)
-      await desc.run();
+    return true;
   }
 }
 
@@ -198,25 +196,26 @@ class Suite {
  */
 
 class Desc {
-  constructor(suite, name, func) {
+  constructor(suite, parent, name, func) {
     assert(suite instanceof Suite);
+    assert((parent instanceof Suite)
+        || (parent instanceof Desc));
     assert(typeof name === 'string');
     assert(typeof func === 'function');
 
-    const parent = suite.current || defaults;
-
     this.mocha = suite.mocha;
     this.suite = suite;
-    this.parent = suite.current;
+    this.parent = parent;
     this.name = name;
     this.func = func;
     this.depth = suite.depth;
     this.timeout = parent.timeout;
-    this.befores = parent.befores.slice();
-    this.afters = parent.afters.slice();
+    this.befores = [];
+    this.afters = [];
     this.beforeEaches = parent.beforeEaches.slice();
     this.afterEaches = parent.afterEaches.slice();
     this.tests = [];
+    this.descs = [];
 
     this.api = {
       timeout: (ms) => {
@@ -227,27 +226,6 @@ class Desc {
 
   log(str) {
     this.mocha.log(str, this.depth);
-  }
-
-  push(name, err) {
-    assert(typeof name === 'string');
-
-    if (this.mocha.bail)
-      throw err;
-
-    this.mocha.errors.push([this.name, name, err]);
-  }
-
-  get id() {
-    return this.mocha.errors.length;
-  }
-
-  pass() {
-    this.mocha.passing += 1;
-  }
-
-  fail() {
-    this.mocha.failing += 1;
   }
 
   before(func) {
@@ -273,7 +251,7 @@ class Desc {
   it(name, func) {
     assert(typeof name === 'string');
     assert(typeof func === 'function');
-    this.tests.push([name.slice(0, 100), func]);
+    this.tests.push([name.substring(0, 300), func]);
   }
 
   init() {
@@ -293,11 +271,7 @@ class Desc {
     this.suite.depth += 1;
     this.suite.current = this;
 
-    try {
-      this.func.call(this.api);
-    } catch (e) {
-      this.push(this.name, e);
-    }
+    this.func.call(this.api);
 
     this.suite.current = current;
     this.suite.depth -= 1;
@@ -309,8 +283,40 @@ class Desc {
     global.it = it;
   }
 
+  succeed(name, start) {
+    assert(typeof name === 'string');
+    assert(Number.isSafeInteger(start));
+
+    const elapsed = Date.now() - start;
+
+    let suffix = '';
+
+    if (elapsed >= 100)
+      suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
+    else if (elapsed >= 40)
+      suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
+
+    this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
+    this.mocha.passing += 1;
+  }
+
+  fail(name, err) {
+    assert(typeof name === 'string');
+
+    const id = this.mocha.errors.length + 1;
+
+    this.log(`  \x1b[31m${id}) ${name}\x1b[m `);
+    this.mocha.errors.push([this.name, name, err]);
+    this.mocha.failing += 1;
+
+    return !this.mocha.bail;
+  }
+
   async run() {
-    let failed = false;
+    if (this.tests.length === 0
+        && this.descs.length === 0) {
+      return true;
+    }
 
     this.log('');
     this.log(`${this.name}`);
@@ -319,10 +325,7 @@ class Desc {
       try {
         await this.runTest(before);
       } catch (e) {
-        if (!failed) {
-          this.push('before hook', e);
-          failed = true;
-        }
+        return this.fail('"before all" hook', e);
       }
     }
 
@@ -330,70 +333,54 @@ class Desc {
       if (!this.mocha.matches(name))
         continue;
 
-      const start = Date.now();
-
-      let failed = false;
-
       for (const before of this.beforeEaches) {
         try {
           await this.runTest(before);
         } catch (e) {
-          if (!failed) {
-            this.push(name, e);
-            failed = true;
-          }
+          return this.fail(`"before each" hook for "${name}"`, e);
         }
       }
+
+      const start = Date.now();
+
+      let err = null;
 
       try {
         await this.runTest(func);
       } catch (e) {
-        if (!failed) {
-          this.push(name, e);
-          failed = true;
-        }
+        err = e;
+      }
+
+      if (err) {
+        if (!this.fail(name, err))
+          return false;
+      } else {
+        this.succeed(name, start);
       }
 
       for (const after of this.afterEaches) {
         try {
           await this.runTest(after);
         } catch (e) {
-          if (!failed) {
-            this.push(name, e);
-            failed = true;
-          }
+          return this.fail(`"after each" hook for "${name}"`, e);
         }
       }
+    }
 
-      if (failed) {
-        this.log(`  \x1b[31m${this.id}) ${name}\x1b[m `);
-        this.fail();
-        continue;
-      }
-
-      const elapsed = Date.now() - start;
-
-      let suffix = '';
-
-      if (elapsed >= 100)
-        suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-      else if (elapsed >= 40)
-        suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
-
-      this.log(`  \x1b[32m✓\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
-      this.pass();
+    for (const desc of this.descs) {
+      if (!await desc.run())
+        return false;
     }
 
     for (const after of this.afters) {
       try {
         await this.runTest(after);
       } catch (e) {
-        if (!failed) {
-          this.push('after hook', e);
-          failed = true;
-        }
+        return this.fail('"after all" hook', e);
       }
     }
+
+    return true;
   }
 
   async runTest(func) {
@@ -419,6 +406,10 @@ class Desc {
 
       if (func.length > 0) {
         const cb = (err, result) => {
+          if (called)
+            return;
+
+          called = true;
           cleanup();
 
           if (err) {
@@ -426,17 +417,16 @@ class Desc {
             return;
           }
 
-          if (!called) {
-            called = true;
-            resolve(result);
-          }
+          resolve(result);
         };
 
         try {
           func.call(ctx, cb);
         } catch (e) {
-          called = true;
-          reject(e);
+          if (!called) {
+            called = true;
+            reject(e);
+          }
           return;
         }
       } else {
@@ -534,12 +524,13 @@ process.on('unhandledRejection', (err, promise) => {
   const files = [];
   const excludes = new Set();
 
-  let colors = null;
+  let colors = Boolean(stdout.isTTY);
   let sort = false;
   let bail = false;
   let grep = null;
   let fgrep = null;
   let invert = false;
+  let timeout = 2000;
   let doExit = false;
 
   for (let i = 2; i < argv.length; i++) {
@@ -606,11 +597,11 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-t':
       case '--timeout':
-        defaults.timeout = next >>> 0;
+        timeout = next >>> 0;
         i += 1;
         break;
       case '--no-timeouts':
-        defaults.timeout = 0;
+        timeout = 0;
         break;
       case '--exit':
         doExit = true;
@@ -639,13 +630,12 @@ process.on('unhandledRejection', (err, promise) => {
 
   const mocha = new Mocha(files);
 
-  if (colors != null)
-    mocha.colors = colors;
-
+  mocha.colors = colors;
   mocha.bail = bail;
   mocha.grep = grep;
   mocha.fgrep = fgrep;
   mocha.invert = invert;
+  mocha.timeout = timeout;
 
   await mocha.run();
 
