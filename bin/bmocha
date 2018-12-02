@@ -11,6 +11,7 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
 const Path = require('path');
 
 const {
@@ -54,9 +55,11 @@ class Mocha {
     this.grep = null;
     this.fgrep = null;
     this.invert = false;
-    this.exit = false;
     this.depth = -1;
+    this.slow = 75;
     this.timeout = 2000;
+    this.timeouts = true;
+    this.retries = 0;
     this.beforeEaches = [];
     this.afterEaches = [];
     this.errors = [];
@@ -158,10 +161,7 @@ class Mocha {
     for (const [i, [desc, name, err]] of this.errors.entries())
       this.error(i + 1, desc, name, err);
 
-    if (this.failing > 0)
-      return this.failing;
-
-    return this.exit ? 0 : -1;
+    return Math.min(this.failing, 255);
   }
 }
 
@@ -182,6 +182,8 @@ class Suite {
     this.func = func;
     this.depth = parent.depth + 1;
     this.timeout = parent.timeout;
+    this.timeouts = parent.timeouts;
+    this.retries = parent.retries;
     this.befores = [];
     this.afters = [];
     this.beforeEaches = parent.beforeEaches.slice();
@@ -252,14 +254,16 @@ class Suite {
     global.afterEach = this.afterEach.bind(this);
     global.it = this.it.bind(this);
 
-    this.func.call(this.api);
-
-    global.describe = describe;
-    global.before = before;
-    global.after = after;
-    global.beforeEach = beforeEach;
-    global.afterEach = afterEach;
-    global.it = it;
+    try {
+      this.func.call(this.api);
+    } finally {
+      global.describe = describe;
+      global.before = before;
+      global.after = after;
+      global.beforeEach = beforeEach;
+      global.afterEach = afterEach;
+      global.it = it;
+    }
   }
 
   succeed(name, start) {
@@ -270,9 +274,9 @@ class Suite {
 
     let suffix = '';
 
-    if (elapsed >= 100)
+    if (elapsed > this.mocha.slow)
       suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-    else if (elapsed >= 40)
+    else if (elapsed > this.mocha.slow / 2)
       suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
 
     this.log(`  \x1b[32m\u2713\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
@@ -297,10 +301,10 @@ class Suite {
       return true;
     }
 
-    this.log('');
-
-    if (this.name)
+    if (this.name) {
+      this.log('');
       this.log(`${this.name}`);
+    }
 
     for (const before of this.befores) {
       try {
@@ -321,14 +325,20 @@ class Suite {
 
       const start = Date.now();
 
-      let failed = false;
-      let err = null;
+      let failed, err;
 
-      try {
-        await this.runTest(func);
-      } catch (e) {
-        failed = true;
-        err = e;
+      for (let i = 0; i < this.retries + 1; i++) {
+        failed = false;
+
+        try {
+          await this.runTest(func);
+        } catch (e) {
+          failed = true;
+          err = e;
+        }
+
+        if (!failed)
+          break;
       }
 
       if (failed) {
@@ -367,95 +377,116 @@ class Suite {
     assert(typeof func === 'function');
 
     return new Promise((resolve, reject) => {
-      let timeout = this.timeout;
-      let called = false;
-      let timer = null;
-
-      const api = {
-        timeout: (ms) => {
-          timeout = ms >>> 0;
-        }
-      };
-
-      const cleanup = () => {
-        if (timer != null) {
-          clearTimeout(timer);
-          timer = null;
-        }
-      };
+      const job = new Job(this, resolve, reject);
 
       if (func.length > 0) {
-        const cb = (err, result) => {
-          cleanup();
-
-          if (called)
-            return;
-
-          called = true;
-
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          resolve(result);
-        };
+        const cb = err => job.callback(err);
 
         try {
-          func.call(api, cb);
+          func.call(job.api, cb);
         } catch (e) {
-          if (!called) {
-            called = true;
-            reject(e);
-          }
-          return;
-        }
-      } else {
-        let result;
-
-        try {
-          result = func.call(api);
-        } catch (e) {
-          called = true;
-          reject(e);
-          return;
+          job.reject(e);
         }
 
-        if (!(result instanceof Promise)) {
-          called = true;
-          resolve(result);
-          return;
-        }
-
-        result.then((result) => {
-          cleanup();
-          if (!called) {
-            called = true;
-            resolve(result);
-          }
-        }).catch((err) => {
-          cleanup();
-          if (!called) {
-            called = true;
-            reject(err);
-          }
-        });
+        return;
       }
 
-      if (timeout !== 0) {
-        timer = setTimeout(() => {
-          timer = null;
-          if (!called) {
-            called = true;
-            reject(new Error(`Timeout of ${timeout}ms exceeded.`));
-          }
-        }, timeout);
+      let result;
+
+      try {
+        result = func.call(job.api);
+      } catch (e) {
+        job.reject(e);
+        return;
       }
+
+      if (!(result instanceof Promise)) {
+        job.resolve();
+        return;
+      }
+
+      result
+        .then(_ => job.resolve())
+        .catch(err => job.reject(err));
     });
   }
 
   static from(mocha, func) {
     return new this(mocha, mocha, '', func);
+  }
+}
+
+/**
+ * Job
+ */
+
+class Job {
+  constructor(suite, resolve, reject) {
+    assert(suite instanceof Suite);
+    assert(typeof resolve === 'function');
+    assert(typeof reject === 'function');
+
+    this.timeouts = suite.timeouts;
+    this.timer = null;
+    this.called = false;
+    this._resolve = resolve;
+    this._reject = reject;
+
+    this.api = {
+      timeout: ms => this.timeout(ms)
+    };
+
+    this.timeout(suite.timeout);
+  }
+
+  resolve() {
+    if (this.called)
+      return;
+
+    this.called = true;
+    this.clear();
+    this._resolve();
+  }
+
+  reject(err) {
+    if (this.called)
+      return;
+
+    this.called = true;
+    this.clear();
+    this._reject(err);
+  }
+
+  callback(err) {
+    if (err)
+      this.reject(err);
+    else
+      this.resolve();
+  }
+
+  timeout(timeout) {
+    timeout >>>= 0;
+
+    if (!this.timeouts)
+      return;
+
+    if (this.called)
+      return;
+
+    this.clear();
+
+    if (timeout !== 0) {
+      this.timer = setTimeout(() => {
+        this.reject(new Error(`Timeout of ${timeout}ms exceeded.`));
+      }, timeout);
+    }
+  }
+
+  clear() {
+    if (this.timer != null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
   }
 }
 
@@ -512,6 +543,54 @@ function wrapRequire(file) {
   };
 }
 
+function readdir(path) {
+  assert(typeof path === 'string');
+  return fs.readdirSync(path).map((name) => {
+    return Path.join(path, name);
+  });
+}
+
+function flatten(files, recurse = false) {
+  assert(Array.isArray(files));
+  assert(typeof recurse === 'boolean');
+
+  for (const file of files)
+    assert(typeof file === 'string');
+
+  return walk(files, recurse, []);
+}
+
+function walk(files, recurse, out) {
+  for (const file of files) {
+    const stat = fs.statSync(file);
+
+    if (stat.isDirectory()) {
+      if (recurse)
+        walk(readdir(file), recurse, out);
+      continue;
+    }
+
+    const isJS = Path.extname(file) === '.js';
+
+    if (stat.isFile() && isJS) {
+      out.push(file);
+      continue;
+    }
+  }
+
+  return out;
+}
+
+function exclude(files, excludes) {
+  assert(Array.isArray(files));
+  assert(excludes instanceof Set);
+
+  return files.filter((file) => {
+    const name = Path.basename(file);
+    return !excludes.has(name);
+  });
+}
+
 /*
  * Main
  */
@@ -526,11 +605,14 @@ process.on('unhandledRejection', (err, promise) => {
 });
 
 (async () => {
-  const files = [];
-  const excludes = new Set();
   const mocha = new Mocha(stdout);
+  const excludes = new Set();
+  const fileArgs = [];
 
+  let files = [];
   let sort = false;
+  let doExit = false;
+  let recurse = false;
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -592,6 +674,7 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-s':
       case '--slow':
+        mocha.slow = next >>> 0;
         i += 1;
         break;
       case '-t':
@@ -600,17 +683,25 @@ process.on('unhandledRejection', (err, promise) => {
         i += 1;
         break;
       case '--no-timeouts':
-        mocha.timeout = 0;
+        mocha.timeouts = false;
         break;
       case '--exit':
-        mocha.exit = true;
+        doExit = true;
+        break;
+      case '--recursive':
+        recurse = true;
+        break;
+      case '--retries':
+        mocha.retries = next >>> 0;
+        i += 1;
         break;
       case '--file':
-        files.unshift(next);
+        fileArgs.push(next);
         i += 1;
         break;
       case '--exclude':
-        excludes.add(Path.basename(next));
+        next = Path.basename(next);
+        excludes.add(next);
         i += 1;
         break;
       default:
@@ -618,11 +709,14 @@ process.on('unhandledRejection', (err, promise) => {
           stderr.write(`Invalid option: ${arg}.\n`);
           exit(1);
         }
-        if (!excludes.has(Path.basename(arg)))
-          files.push(arg);
+        files.push(arg);
         break;
     }
   }
+
+  files = fileArgs.concat(files);
+  files = flatten(files, recurse);
+  files = exclude(files, excludes);
 
   if (sort)
     files.sort();
@@ -630,8 +724,12 @@ process.on('unhandledRejection', (err, promise) => {
   const funcs = files.map(file => wrapRequire(file));
   const code = await mocha.run(funcs);
 
-  if (code !== -1)
+  if (doExit) {
     exit(code);
+    return;
+  }
+
+  process.on('exit', () => exit(code));
 })().catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
