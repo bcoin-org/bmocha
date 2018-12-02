@@ -12,7 +12,14 @@
 
 const assert = require('assert');
 const fs = require('fs');
-const Path = require('path');
+const path = require('path');
+
+const {
+  basename,
+  extname,
+  join,
+  resolve
+} = path;
 
 const {
   Array,
@@ -523,14 +530,13 @@ function formatStack(stack) {
   return str.replace(/^ +/gm, '');
 }
 
-function wrapRequire(file) {
+function wrap(file) {
   assert(typeof file === 'string');
 
   return () => {
-    const path = Path.resolve(cwd, file);
+    const path = resolve(cwd, file);
 
-    if (require.cache)
-      delete require.cache[path];
+    delete require.cache[path];
 
     try {
       require(path);
@@ -546,8 +552,20 @@ function wrapRequire(file) {
 function readdir(path) {
   assert(typeof path === 'string');
   return fs.readdirSync(path).map((name) => {
-    return Path.join(path, name);
+    return join(path, name);
   });
+}
+
+function exists(file) {
+  assert(typeof file === 'string');
+  try {
+    fs.statSync(file);
+    return true;
+  } catch (e) {
+    if (e.code !== 'ENOENT')
+      throw e;
+    return false;
+  }
 }
 
 function flatten(files, recurse = false) {
@@ -557,20 +575,22 @@ function flatten(files, recurse = false) {
   for (const file of files)
     assert(typeof file === 'string');
 
-  return walk(files, recurse, []);
+  const limit = recurse ? (-1 >>> 0) : 1;
+
+  return walk(files, limit, []);
 }
 
-function walk(files, recurse, out) {
+function walk(files, limit, out) {
   for (const file of files) {
     const stat = fs.statSync(file);
 
     if (stat.isDirectory()) {
-      if (recurse)
-        walk(readdir(file), recurse, out);
+      if (limit > 0)
+        walk(readdir(file), limit - 1, out);
       continue;
     }
 
-    const isJS = Path.extname(file) === '.js';
+    const isJS = extname(file) === '.js';
 
     if (stat.isFile() && isJS) {
       out.push(file);
@@ -586,7 +606,7 @@ function exclude(files, excludes) {
   assert(excludes instanceof Set);
 
   return files.filter((file) => {
-    const name = Path.basename(file);
+    const name = basename(file);
     return !excludes.has(name);
   });
 }
@@ -608,6 +628,7 @@ process.on('unhandledRejection', (err, promise) => {
   const mocha = new Mocha(stdout);
   const excludes = new Set();
   const fileArgs = [];
+  const requires = [];
 
   let files = [];
   let sort = false;
@@ -667,9 +688,9 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-r':
       case '--require':
-        if (next[0] === '.')
-          next = Path.resolve(cwd, next);
-        require(next);
+        if (exists(next) || exists(`${next}.js`))
+          next = resolve(cwd, next);
+        requires.push(next);
         i += 1;
         break;
       case '-s':
@@ -700,7 +721,7 @@ process.on('unhandledRejection', (err, promise) => {
         i += 1;
         break;
       case '--exclude':
-        next = Path.basename(next);
+        next = basename(next);
         excludes.add(next);
         i += 1;
         break;
@@ -714,14 +735,27 @@ process.on('unhandledRejection', (err, promise) => {
     }
   }
 
+  if (files.length === 0) {
+    if (exists('test'))
+      files.push('test');
+    else if (exists('test.js'))
+      files.push('test.js');
+  }
+
   files = fileArgs.concat(files);
+  files = files.map(file => resolve(cwd, file));
   files = flatten(files, recurse);
   files = exclude(files, excludes);
 
   if (sort)
     files.sort();
 
-  const funcs = files.map(file => wrapRequire(file));
+  module.paths.push(cwd, join(cwd, 'node_modules'));
+
+  for (const file of requires)
+    require(file);
+
+  const funcs = files.map(file => wrap(file));
   const code = await mocha.run(funcs);
 
   if (doExit) {
