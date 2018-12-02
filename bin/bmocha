@@ -194,6 +194,8 @@ class Suite {
         this.timeout = ms >>> 0;
       }
     };
+
+    this.init();
   }
 
   log(str) {
@@ -205,8 +207,6 @@ class Suite {
     const suite = new Suite(mocha, this, name, func);
 
     this.suites.push(suite);
-
-    suite.init();
   }
 
   before(func) {
@@ -371,7 +371,7 @@ class Suite {
       let called = false;
       let timer = null;
 
-      const ctx = {
+      const api = {
         timeout: (ms) => {
           timeout = ms >>> 0;
         }
@@ -386,11 +386,12 @@ class Suite {
 
       if (func.length > 0) {
         const cb = (err, result) => {
+          cleanup();
+
           if (called)
             return;
 
           called = true;
-          cleanup();
 
           if (err) {
             reject(err);
@@ -401,7 +402,7 @@ class Suite {
         };
 
         try {
-          func.call(ctx, cb);
+          func.call(api, cb);
         } catch (e) {
           if (!called) {
             called = true;
@@ -410,23 +411,23 @@ class Suite {
           return;
         }
       } else {
-        let promise;
+        let result;
 
         try {
-          promise = func.call(ctx);
+          result = func.call(api);
         } catch (e) {
           called = true;
           reject(e);
           return;
         }
 
-        if (!(promise instanceof Promise)) {
+        if (!(result instanceof Promise)) {
           called = true;
-          resolve(promise);
+          resolve(result);
           return;
         }
 
-        promise.then((result) => {
+        result.then((result) => {
           cleanup();
           if (!called) {
             called = true;
@@ -454,9 +455,7 @@ class Suite {
   }
 
   static from(mocha, func) {
-    const suite = new this(mocha, mocha, '', func);
-    suite.init();
-    return suite;
+    return new this(mocha, mocha, '', func);
   }
 }
 
