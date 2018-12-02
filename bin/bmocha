@@ -773,8 +773,6 @@ class JSONReporter extends Reporter {
     assert(test instanceof Test);
 
     const json = {
-      id: test.id,
-      depth: test.depth,
       name: test.name,
       elapsed: test.elapsed,
       skip: test.skip,
