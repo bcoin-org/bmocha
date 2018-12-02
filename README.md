@@ -4,8 +4,33 @@ Minimal implementation of mocha.
 
 ## Usage
 
+### CLI
+
 ``` bash
-$ bmocha --reporter spec test/foo-test.js
+$ bmocha --reporter spec test/
+$ bmocha --help
+```
+
+### JS
+
+``` js
+const assert = require('assert');
+const {Mocha} = require('bmocha');
+const mocha = new Mocha(process.stdout);
+
+const code = await mocha.run([() => {
+  describe('Foobar', function() {
+    this.timeout(5000);
+
+    it('should check 1 == 1', function() {
+      this.retries(10);
+      assert.equal(1, 1);
+    });
+  });
+}]);
+
+if (code !== 0)
+  process.exit(code);
 ```
 
 ## Contribution and License Agreement
