@@ -295,16 +295,18 @@ class Suite {
     else
       this.mocha.passing += 1;
 
+    this.mocha.results.push(test);
+
     this.reporter.test(test);
   }
 
   fail(test) {
     assert(test instanceof Test);
 
-    this.mocha.results.push(test);
-    this.mocha.failing += 1;
+    test.id = this.mocha.failing + 1;
 
-    test.id = this.mocha.failing;
+    this.mocha.failing += 1;
+    this.mocha.results.push(test);
 
     this.reporter.test(test);
 
