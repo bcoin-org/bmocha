@@ -3,7 +3,7 @@
 /*!
  * bmocha - minimal mocha implementation
  * Copyright (c) 2018, Christopher Jeffrey (MIT License).
- * https://github.com/chjj/bmocha
+ * https://github.com/bcoin-org/bmocha
  */
 
 /* eslint no-control-regex: "off" */

@@ -8,10 +8,10 @@
     "testing"
   ],
   "license": "MIT",
-  "repository": "git://github.com/chjj/bmocha.git",
-  "homepage": "https://github.com/chjj/bmocha",
+  "repository": "git://github.com/bcoin-org/bmocha.git",
+  "homepage": "https://github.com/bcoin-org/bmocha",
   "bugs": {
-    "url": "https://github.com/chjj/bmocha/issues"
+    "url": "https://github.com/bcoin-org/bmocha/issues"
   },
   "author": "Christopher Jeffrey <chjjeffrey@gmail.com>",
   "main": "./lib/bmocha.js",
