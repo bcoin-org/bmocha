@@ -33,6 +33,16 @@ if (code !== 0)
   process.exit(code);
 ```
 
+### Browser
+
+``` js
+const {Mocha, DOMStream} = require('bmocha');
+const stream = new DOMStream(document.body);
+const mocha = new Mocha(stream);
+
+await mocha.run(...);
+```
+
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code
