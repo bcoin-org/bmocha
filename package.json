@@ -14,12 +14,12 @@
     "url": "https://github.com/chjj/bmocha/issues"
   },
   "author": "Christopher Jeffrey <chjjeffrey@gmail.com>",
-  "main": "./index.js",
+  "main": "./lib/bmocha.js",
   "bin": {
     "bmocha": "./bin/bmocha"
   },
   "scripts": {
-    "lint": "eslint bin/* test/ || exit 0",
+    "lint": "eslint bin/* lib/ test/ || exit 0",
     "test": "bmocha --reporter spec test/*-test.js"
   },
   "engines": {
