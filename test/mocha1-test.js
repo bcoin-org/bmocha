@@ -77,3 +77,14 @@ describe('Mocha 1', function() {
     assert.strictEqual(x, 11);
   });
 });
+
+describe('Mocha 3', function() {
+  it('should skip', function() {
+    this.skip();
+    assert.strictEqual(0, 1);
+  });
+
+  it('should not skip', function() {
+    assert.strictEqual(1, 1);
+  });
+});

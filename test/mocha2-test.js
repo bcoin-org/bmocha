@@ -5,7 +5,7 @@
 
 const assert = require('assert');
 
-describe('Mocha 3', function() {
+describe('Mocha 4', function() {
   this.timeout(120000);
 
   let x = 0;
@@ -54,7 +54,7 @@ describe('Mocha 3', function() {
     setTimeout(cb, 30);
   });
 
-  describe('Mocha 4', function() {
+  describe('Mocha 5', function() {
     this.timeout(2000);
 
     after(() => {

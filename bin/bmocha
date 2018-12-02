@@ -28,7 +28,6 @@ const {
   clearTimeout,
   Error,
   Math,
-  Number,
   process,
   Promise,
   RegExp,
@@ -95,10 +94,13 @@ class Mocha {
     this.timeout = 2000;
     this.timeouts = true;
     this.retries = 0;
+    this.skip = false;
+    this.matching = false;
     this.beforeEaches = [];
     this.afterEaches = [];
     this.errors = [];
     this.passing = 0;
+    this.pending = 0;
     this.failing = 0;
   }
 
@@ -168,11 +170,12 @@ class Mocha {
   async run(funcs) {
     assert(Array.isArray(funcs));
 
-    const start = Date.now();
-
     this.errors = [];
     this.passing = 0;
+    this.pending = 0;
     this.failing = 0;
+
+    const start = Date.now();
 
     for (const func of funcs) {
       const suite = Suite.from(this, func);
@@ -187,6 +190,9 @@ class Mocha {
 
     this.log('');
     this.log(`${passed} ${time}`, 1);
+
+    if (this.pending > 0)
+      this.log(`\x1b[36m${this.pending} pending\x1b[m`, 1);
 
     if (this.failing > 0)
       this.log(`\x1b[31m${this.failing} failing\x1b[m`, 1);
@@ -215,22 +221,20 @@ class Suite {
     this.mocha = mocha;
     this.name = name;
     this.func = func;
+    this.matching = parent.matching || mocha.matches(name);
     this.depth = parent.depth + 1;
+    this.slow = parent.slow;
     this.timeout = parent.timeout;
     this.timeouts = parent.timeouts;
     this.retries = parent.retries;
+    this.skip = parent.skip;
     this.befores = [];
     this.afters = [];
     this.beforeEaches = parent.beforeEaches.slice();
     this.afterEaches = parent.afterEaches.slice();
     this.tests = [];
     this.suites = [];
-
-    this.api = {
-      timeout: (ms) => {
-        this.timeout = ms >>> 0;
-      }
-    };
+    this.context = new Context(this);
 
     this.init();
   }
@@ -270,7 +274,7 @@ class Suite {
     assert(typeof name === 'string');
     assert(typeof func === 'function');
 
-    if (this.mocha.matches(name))
+    if (this.matching || this.mocha.matches(name))
       this.tests.push([name.substring(0, 300), func]);
   }
 
@@ -290,7 +294,7 @@ class Suite {
     global.it = this.it.bind(this);
 
     try {
-      this.func.call(this.api);
+      this.func.call(this.context);
     } finally {
       global.describe = describe;
       global.before = before;
@@ -301,94 +305,107 @@ class Suite {
     }
   }
 
-  succeed(name, start) {
-    assert(typeof name === 'string');
-    assert(Number.isSafeInteger(start));
+  total() {
+    let count = this.tests.length;
 
-    const elapsed = Date.now() - start;
+    for (const suite of this.suites)
+      count += suite.total();
+
+    return count;
+  }
+
+  test(name, func) {
+    return new Test(this, name, func);
+  }
+
+  hook(hook, name, func) {
+    assert(typeof hook === 'string');
+    assert(typeof name === 'string');
+
+    let title = `"${hook}" hook`;
+
+    if (name)
+      title += ` for "${name}"`;
+
+    return new Test(this, title, func);
+  }
+
+  succeed(test) {
+    assert(test instanceof Test);
+
+    const {name, elapsed, slow, skip} = test;
+
+    if (skip) {
+      this.log(`  \x1b[36m- ${name}\x1b[m`);
+      this.mocha.pending += 1;
+      return;
+    }
 
     let suffix = '';
 
-    if (elapsed > this.mocha.slow)
+    if (elapsed > slow)
       suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-    else if (elapsed > this.mocha.slow / 2)
+    else if (elapsed > (slow >>> 1))
       suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
 
     this.log(`  \x1b[32m\u2713\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
     this.mocha.passing += 1;
   }
 
-  fail(name, err) {
-    assert(typeof name === 'string');
+  fail(test) {
+    assert(test instanceof Test);
 
+    const {name, error} = test;
     const id = this.mocha.errors.length + 1;
 
     this.log(`  \x1b[31m${id}) ${name}\x1b[m `);
-    this.mocha.errors.push([this.name, name, err]);
+    this.mocha.errors.push([this.name, name, error]);
     this.mocha.failing += 1;
 
     return !this.mocha.bail;
   }
 
   async run() {
-    if (this.tests.length === 0
-        && this.suites.length === 0) {
+    if (this.total() === 0)
       return true;
-    }
+
+    if (this.skip)
+      return true;
 
     if (this.name) {
       this.log('');
       this.log(`${this.name}`);
     }
 
-    for (const before of this.befores) {
-      try {
-        await this.runTest(before);
-      } catch (e) {
-        return this.fail('"before all" hook', e);
-      }
+    for (const func of this.befores) {
+      const hook = this.hook('before all', '', func);
+
+      if (!await hook.run())
+        return this.fail(hook);
     }
 
     for (const [name, func] of this.tests) {
-      for (const before of this.beforeEaches) {
-        try {
-          await this.runTest(before);
-        } catch (e) {
-          return this.fail(`"before each" hook for "${name}"`, e);
-        }
+      for (const func of this.beforeEaches) {
+        const hook = this.hook('before each', name, func);
+
+        if (!await hook.run())
+          return this.fail(hook);
       }
 
-      const start = Date.now();
+      const test = this.test(name, func);
 
-      let failed, err;
-
-      for (let i = 0; i < this.retries + 1; i++) {
-        failed = false;
-
-        try {
-          await this.runTest(func);
-        } catch (e) {
-          failed = true;
-          err = e;
-        }
-
-        if (!failed)
-          break;
-      }
-
-      if (failed) {
-        if (!this.fail(name, err))
+      if (!await test.run()) {
+        if (!this.fail(test))
           return false;
       } else {
-        this.succeed(name, start);
+        this.succeed(test);
       }
 
-      for (const after of this.afterEaches) {
-        try {
-          await this.runTest(after);
-        } catch (e) {
-          return this.fail(`"after each" hook for "${name}"`, e);
-        }
+      for (const func of this.afterEaches) {
+        const hook = this.hook('after each', name, func);
+
+        if (!await hook.run())
+          return this.fail(hook);
       }
     }
 
@@ -397,53 +414,14 @@ class Suite {
         return false;
     }
 
-    for (const after of this.afters) {
-      try {
-        await this.runTest(after);
-      } catch (e) {
-        return this.fail('"after all" hook', e);
-      }
+    for (const func of this.afters) {
+      const hook = this.hook('after all', '', func);
+
+      if (!await hook.run())
+        return this.fail(hook);
     }
 
     return true;
-  }
-
-  async runTest(func) {
-    assert(typeof func === 'function');
-
-    return new Promise((resolve, reject) => {
-      const job = new Job(this, resolve, reject);
-
-      if (func.length > 0) {
-        const cb = err => job.callback(err);
-
-        try {
-          func.call(job.api, cb);
-        } catch (e) {
-          job.reject(e);
-        }
-
-        return;
-      }
-
-      let result;
-
-      try {
-        result = func.call(job.api);
-      } catch (e) {
-        job.reject(e);
-        return;
-      }
-
-      if (!(result instanceof Promise)) {
-        job.resolve();
-        return;
-      }
-
-      result
-        .then(_ => job.resolve())
-        .catch(err => job.reject(err));
-    });
   }
 
   static from(mocha, func) {
@@ -452,26 +430,162 @@ class Suite {
 }
 
 /**
+ * Test
+ */
+
+class Test {
+  constructor(suite, name, func) {
+    assert(suite instanceof Suite);
+    assert(typeof name === 'string');
+    assert(typeof func === 'function');
+
+    this.name = name;
+    this.func = func;
+    this.elapsed = 0;
+    this.failed = false;
+    this.error = null;
+    this.slow = suite.slow;
+    this.timeout = suite.timeout;
+    this.timeouts = suite.timeouts;
+    this.retries = suite.retries;
+    this.skip = suite.skip;
+    this.context = new Context(this);
+  }
+
+  async exec() {
+    return new Promise((resolve, reject) => {
+      const job = new Job(this, resolve, reject);
+
+      if (this.func.length > 0) {
+        const cb = err => job.callback(err);
+
+        try {
+          this.func.call(this.context, cb);
+        } catch (e) {
+          job.reject(e);
+          return;
+        }
+      } else {
+        let result;
+
+        try {
+          result = this.func.call(this.context);
+        } catch (e) {
+          job.reject(e);
+          return;
+        }
+
+        if (!(result instanceof Promise)) {
+          job.resolve();
+          return;
+        }
+
+        result
+          .then(_ => job.resolve())
+          .catch(err => job.reject(err));
+      }
+
+      job.start();
+    });
+  }
+
+  async run() {
+    this.elapsed = 0;
+    this.failed = false;
+    this.error = null;
+
+    if (this.skip)
+      return true;
+
+    const start = Date.now();
+
+    let failed, err;
+
+    for (let i = 0; i < this.retries + 1; i++) {
+      failed = false;
+
+      try {
+        await this.exec();
+      } catch (e) {
+        failed = true;
+        err = e;
+      }
+
+      if (this.skip)
+        break;
+
+      if (!failed)
+        break;
+    }
+
+    this.elapsed = Date.now() - start;
+
+    if (failed) {
+      this.failed = true;
+      this.error = err;
+      return this.skip;
+    }
+
+    return true;
+  }
+}
+
+/**
+ * Context
+ */
+
+class Context {
+  constructor(runnable) {
+    assert((runnable instanceof Suite)
+        || (runnable instanceof Test));
+    this.runnable = runnable;
+  }
+
+  runnable(value) {
+    throw new Error('Unimplemented.');
+  }
+
+  timeout(ms) {
+    this.runnable.timeout = ms >>> 0;
+    return this;
+  }
+
+  enableTimeouts(enabled) {
+    this.runnable.timeouts = Boolean(enabled);
+    return this;
+  }
+
+  slow(ms) {
+    this.runnable.slow = ms >>> 0;
+    return this;
+  }
+
+  skip() {
+    this.runnable.skip = true;
+    return this;
+  }
+
+  retries(n) {
+    this.runnable.retries = n >>> 0;
+    return this;
+  }
+}
+
+/**
  * Job
  */
 
 class Job {
-  constructor(suite, resolve, reject) {
-    assert(suite instanceof Suite);
+  constructor(test, resolve, reject) {
+    assert(test instanceof Test);
     assert(typeof resolve === 'function');
     assert(typeof reject === 'function');
 
-    this.timeouts = suite.timeouts;
+    this.test = test;
     this.timer = null;
     this.called = false;
     this._resolve = resolve;
     this._reject = reject;
-
-    this.api = {
-      timeout: ms => this.timeout(ms)
-    };
-
-    this.timeout(suite.timeout);
   }
 
   resolve() {
@@ -499,22 +613,23 @@ class Job {
       this.resolve();
   }
 
-  timeout(timeout) {
-    timeout >>>= 0;
-
-    if (!this.timeouts)
-      return;
+  start() {
+    const {timeout, timeouts} = this.test;
 
     if (this.called)
       return;
 
-    this.clear();
+    if (!timeouts)
+      return;
 
-    if (timeout !== 0) {
-      this.timer = setTimeout(() => {
-        this.reject(new Error(`Timeout of ${timeout}ms exceeded.`));
-      }, timeout);
-    }
+    if (timeout === 0)
+      return;
+
+    assert(this.timer == null);
+
+    this.timer = setTimeout(() => {
+      this.reject(new Error(`Timeout of ${timeout}ms exceeded.`));
+    }, timeout);
   }
 
   clear() {
