@@ -7,7 +7,6 @@
  */
 
 /* eslint no-control-regex: "off" */
-/* eslint max-len: "off" */
 
 'use strict';
 
@@ -51,26 +50,25 @@ const HELP = `
 
   Options:
 
-    -V, --version                           output the version number
-    -c, --colors                            force enabling of colors
-    -C, --no-colors                         force disabling of colors
-    -O, --reporter-options <k=v,k2=v2,...>  reporter-specific options
-    -R, --reporter <name>                   specify the reporter to use (default: spec)
-    -S, --sort                              sort test files
-    -b, --bail                              bail after first test failure
-    -g, --grep <pattern>                    only run tests matching <pattern>
-    -f, --fgrep <string>                    only run tests containing <string>
-    -i, --invert                            inverts --grep and --fgrep matches
-    -r, --require <name>                    require the given module
-    -s, --slow <ms>                         "slow" test threshold in milliseconds [75]
-    -t, --timeout <ms>                      set test-case timeout in milliseconds [2000]
-    --exit                                  force shutdown of the event loop after test run: bmocha will call process.exit
-    --no-timeouts                           disables timeouts
-    --recursive                             include sub directories
-    --retries <times>                       set numbers of time to retry a failed test case
-    --file <file>                           include a file to be ran during the suite
-    --exclude <file>                        a file or glob pattern to ignore
-    -h, --help                              output usage information
+    -V, --version          output the version number
+    -c, --colors           force enabling of colors
+    -C, --no-colors        force disabling of colors
+    -R, --reporter <name>  specify the reporter to use (default: spec)
+    -S, --sort             sort test files
+    -b, --bail             bail after first test failure
+    -g, --grep <pattern>   only run tests matching <pattern>
+    -f, --fgrep <string>   only run tests containing <string>
+    -i, --invert           inverts --grep and --fgrep matches
+    -r, --require <name>   require the given module
+    -s, --slow <ms>        "slow" test threshold in milliseconds [75]
+    -t, --timeout <ms>     set test-case timeout in milliseconds [2000]
+    --exit                 force shutdown of the event loop after test run
+    --no-timeouts          disables timeouts
+    --recursive            include sub directories
+    --retries <times>      set numbers of time to retry a failed test case
+    --file <file>          include a file to be ran during the suite
+    --exclude <file>       a file or glob pattern to ignore
+    -h, --help             output usage information
 `;
 
 const nullStream = {
@@ -761,7 +759,7 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-h':
       case '--help':
-        stdout.write(HELP);
+        stdout.write(HELP + '\n');
         return;
       default:
         if (arg.length === 0 || arg[0] === '-') {
