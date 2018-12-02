@@ -95,6 +95,9 @@ class Mocha {
     this.timeouts = true;
     this.retries = 0;
     this.skip = false;
+    this.mocha = this;
+    this.parent = null;
+    this.name = '';
     this.matching = false;
     this.beforeEaches = [];
     this.afterEaches = [];
@@ -131,39 +134,30 @@ class Mocha {
     this.stream.write(str + '\n');
   }
 
-  error(id, desc, name, err) {
-    if (err == null || typeof err !== 'object')
-      err = String(err);
+  error(status) {
+    assert(status instanceof Status);
 
-    if (typeof err === 'string')
-      err = new Error(err);
+    const {suite, error} = status;
 
-    assert((id >>> 0) === id);
-    assert(typeof desc === 'string');
-    assert(typeof name === 'string');
-    assert(err && typeof err === 'object');
-
-    const stack = formatStack(err.stack);
-
-    if (desc) {
-      this.log(`${id}) ${desc}`, 1);
-      this.log(`${name}:`, 3);
+    if (suite.name) {
+      this.log(`${status.id}) ${suite.name}`, 1);
+      this.log(`${status.name}:`, 3);
     } else {
-      this.log(`${id}) ${name}:`, 1);
+      this.log(`${status.id}) ${status.name}:`, 1);
     }
 
     this.log('');
-    this.log(`\x1b[31m${err.name}: ${err.message}\x1b[m`, 3);
+    this.log(`\x1b[31m${error.name}: ${error.message}\x1b[m`, 3);
 
-    if (err.code === 'ERR_ASSERTION') {
+    if (error.code === 'ERR_ASSERTION') {
       this.log('\x1b[32m+ expected\x1b[m \x1b[31m- actual\x1b[m', 3);
       this.log('');
-      this.log(`\x1b[31m-${err.actual}\x1b[m`, 3);
-      this.log(`\x1b[32m+${err.expected}\x1b[m`, 3);
+      this.log(`\x1b[31m-${error.actual}\x1b[m`, 3);
+      this.log(`\x1b[32m+${error.expected}\x1b[m`, 3);
     }
 
     this.log('');
-    this.log(`\x1b[90m${stack}\x1b[m`, 3);
+    this.log(`\x1b[90m${status.stack}\x1b[m`, 3);
     this.log('');
   }
 
@@ -199,8 +193,8 @@ class Mocha {
 
     this.log('');
 
-    for (const [i, [desc, name, err]] of this.errors.entries())
-      this.error(i + 1, desc, name, err);
+    for (const status of this.errors)
+      this.error(status);
 
     return Math.min(this.failing, 255);
   }
@@ -219,6 +213,7 @@ class Suite {
     assert(typeof func === 'function');
 
     this.mocha = mocha;
+    this.parent = parent;
     this.name = name;
     this.func = func;
     this.matching = parent.matching || mocha.matches(name);
@@ -333,33 +328,31 @@ class Suite {
   succeed(test) {
     assert(test instanceof Test);
 
-    const {name, elapsed, slow, skip} = test;
-
-    if (skip) {
-      this.log(`  \x1b[36m- ${name}\x1b[m`);
+    if (test.skip) {
+      this.log(`  \x1b[36m- ${test.name}\x1b[m`);
       this.mocha.pending += 1;
       return;
     }
 
     let suffix = '';
 
-    if (elapsed > slow)
-      suffix = `\x1b[31m (${elapsed}ms)\x1b[m`;
-    else if (elapsed > (slow >>> 1))
-      suffix = `\x1b[33m (${elapsed}ms)\x1b[m`;
+    if (test.elapsed > test.slow)
+      suffix = `\x1b[31m (${test.elapsed}ms)\x1b[m`;
+    else if (test.elapsed > (test.slow >>> 1))
+      suffix = `\x1b[33m (${test.elapsed}ms)\x1b[m`;
 
-    this.log(`  \x1b[32m\u2713\x1b[m \x1b[90m${name}\x1b[m${suffix}`);
+    this.log(`  \x1b[32m\u2713\x1b[m \x1b[90m${test.name}\x1b[m${suffix}`);
     this.mocha.passing += 1;
   }
 
   fail(test) {
     assert(test instanceof Test);
 
-    const {name, error} = test;
     const id = this.mocha.errors.length + 1;
+    const status = test.status(id);
 
-    this.log(`  \x1b[31m${id}) ${name}\x1b[m `);
-    this.mocha.errors.push([this.name, name, error]);
+    this.log(`  \x1b[31m${id}) ${test.name}\x1b[m `);
+    this.mocha.errors.push(status);
     this.mocha.failing += 1;
 
     return !this.mocha.bail;
@@ -439,6 +432,7 @@ class Test {
     assert(typeof name === 'string');
     assert(typeof func === 'function');
 
+    this.suite = suite;
     this.name = name;
     this.func = func;
     this.elapsed = 0;
@@ -450,6 +444,10 @@ class Test {
     this.retries = suite.retries;
     this.skip = suite.skip;
     this.context = new Context(this);
+  }
+
+  status(id) {
+    return new Status(id, this);
   }
 
   async exec() {
@@ -641,6 +639,24 @@ class Job {
 }
 
 /*
+ * Status
+ */
+
+class Status {
+  constructor(id, test) {
+    assert((id >>> 0) === id);
+    assert(test instanceof Test);
+
+    this.id = id;
+    this.suite = test.suite;
+    this.test = test;
+    this.name = test.name;
+    this.error = castError(test.error);
+    this.stack = formatStack(this.error.stack);
+  }
+}
+
+/*
  * Helpers
  */
 
@@ -660,6 +676,18 @@ function indent(str, depth) {
     spaces += ' ';
 
   return str.replace(/^/gm, spaces);
+}
+
+function castError(err) {
+  if (err == null || typeof err !== 'object')
+    err = String(err);
+
+  if (typeof err === 'string')
+    err = new Error(err);
+
+  assert(err && typeof err === 'object');
+
+  return err;
 }
 
 function formatStack(stack) {
