@@ -600,7 +600,7 @@ class Job {
   }
 }
 
-/*
+/**
  * Reporter
  */
 
@@ -638,7 +638,7 @@ class Reporter {
   }
 }
 
-/*
+/**
  * SpecReporter
  */
 
@@ -740,7 +740,7 @@ class SpecReporter extends Reporter {
   }
 }
 
-/*
+/**
  * JSONReporter
  */
 
