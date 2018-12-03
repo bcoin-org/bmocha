@@ -16,7 +16,7 @@ assert.strictEqual = function(x, y, msg) {
 (async () => {
   const mocha = new Mocha(new DOMStream());
 
-  await mocha.run([() => {
+  await mocha.run(() => {
     describe('Mocha 1', function() {
       this.timeout(120000);
 
@@ -100,5 +100,5 @@ assert.strictEqual = function(x, y, msg) {
         assert.strictEqual(1, 1);
       });
     });
-  }]);
+  });
 })();

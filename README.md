@@ -18,7 +18,7 @@ const assert = require('assert');
 const {Mocha} = require('bmocha');
 const mocha = new Mocha(process.stdout);
 
-const code = await mocha.run([() => {
+const code = await mocha.run(() => {
   describe('Foobar', function() {
     this.timeout(5000);
 
@@ -27,7 +27,7 @@ const code = await mocha.run([() => {
       assert.equal(1, 1);
     });
   });
-}]);
+});
 
 if (code !== 0)
   process.exit(code);
