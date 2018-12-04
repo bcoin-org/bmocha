@@ -172,10 +172,12 @@ process.on('unhandledRejection', (err, promise) => {
 
 (async () => {
   const mocha = new Mocha(stdout);
+  const options = Object.create(null);
   const excludes = new Set();
   const fileArgs = [];
   const requires = [];
 
+  let Reporter = SpecReporter;
   let files = [];
   let sort = false;
   let doExit = false;
@@ -193,7 +195,7 @@ process.on('unhandledRejection', (err, promise) => {
       case '-V':
       case '--version':
         stdout.write(VERSION + '\n');
-        return;
+        return 0;
       case '-c':
       case '--colors':
         mocha.colors = true;
@@ -204,21 +206,33 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-O':
       case '--reporter-options':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
+        for (const opt of next.split(',')) {
+          const parts = opt.split('=');
+          if (parts.length > 2 || parts.length === 0)
+            throw new Error(`Invalid reporter option '${opt}'.`);
+          else if (parts.length === 2)
+            options[parts[0]] = parts[1];
+          else
+            options[parts[0]] = true;
+        }
         i += 1;
         break;
       case '-R':
       case '--reporter':
         switch (next) {
           case 'spec':
-            mocha.report(SpecReporter);
+            Reporter = SpecReporter;
             break;
           case 'json':
-            mocha.report(JSONReporter);
+            Reporter = JSONReporter;
             break;
           default:
-            stderr.write(`Invalid reporter: ${next}.\n`);
-            exit(1);
-            break;
+            stderr.write(`Invalid reporter: '${next}'.\n`);
+            return 1;
         }
         i += 1;
         break;
@@ -232,11 +246,19 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-g':
       case '--grep':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
         mocha.grep = new RegExp(next);
         i += 1;
         break;
       case '-f':
       case '--fgrep':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
         mocha.fgrep = next;
         i += 1;
         break;
@@ -246,6 +268,10 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       case '-r':
       case '--require':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
         if (exists(next) || exists(`${next}.js`))
           next = resolve(cwd, next);
         requires.push(next);
@@ -275,10 +301,18 @@ process.on('unhandledRejection', (err, promise) => {
         i += 1;
         break;
       case '--file':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
         fileArgs.push(next);
         i += 1;
         break;
       case '--exclude':
+        if (!next) {
+          stderr.write('Invalid argument.\n');
+          return 1;
+        }
         next = basename(next);
         excludes.add(next);
         i += 1;
@@ -286,16 +320,18 @@ process.on('unhandledRejection', (err, promise) => {
       case '-h':
       case '--help':
         stdout.write(HELP + '\n');
-        return;
+        return 0;
       default:
         if (arg.length === 0 || arg[0] === '-') {
           stderr.write(`Invalid option: ${arg}.\n`);
-          exit(1);
+          return 1;
         }
         files.push(arg);
         break;
     }
   }
+
+  mocha.report(Reporter, options);
 
   if (files.length === 0) {
     if (exists('test'))
@@ -320,13 +356,13 @@ process.on('unhandledRejection', (err, promise) => {
   const funcs = files.map(file => wrap(file));
   const code = await mocha.run(funcs);
 
-  if (doExit) {
+  if (doExit)
     exit(code);
-    return;
-  }
 
+  return code;
+})().then((code) => {
   process.on('exit', () => exit(code));
-})().catch((err) => {
+}).catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
   if (err && err.stack)
