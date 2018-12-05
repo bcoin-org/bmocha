@@ -481,6 +481,7 @@ process.on('unhandledRejection', (err, promise) => {
           return 1;
         }
 
+        listen = true;
         i += 1;
 
         break;
@@ -499,8 +500,13 @@ process.on('unhandledRejection', (err, promise) => {
           stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
+        listen = true;
+        open = true;
         cmd = next;
+
         i += 1;
+
         break;
       }
 
