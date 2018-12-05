@@ -35,6 +35,22 @@ if (code !== 0)
 
 ### Browser
 
+``` bash
+# Bundle tests with browserify and
+# start server on designated port.
+$ bmocha --listen --port 8080
+$ bmocha -l -p 8080
+```
+
+``` bash
+# Bundle tests with browserify,
+# start server, and open browser.
+$ bmocha --open
+$ bmocha -o
+$ bmocha --open --cmd 'chromium --app=%s'
+$ bmocha -o -m 'chromium --app=%s'
+```
+
 ``` js
 const {Mocha, DOMStream} = require('bmocha');
 const stream = new DOMStream(document.body);

@@ -73,9 +73,10 @@ const HELP = `
     --file <file>           include a file to be ran during the suite
     --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
-    --browser               open browser after serving
     -p, --port <port>       port to listen on [8080]
-    --console               use console in browser
+    -o, --open              open browser after serving
+    -m, --cmd <cmd>         set browser command
+    -z, --console           use console in browser
     -h, --help              output usage information
 `;
 
@@ -170,56 +171,56 @@ function exclude(files, excludes) {
   });
 }
 
-async function spawn(file, args, options) {
+function spawn(file, args, shell = false) {
   const cp = require('child_process');
 
-  return new Promise((resolve, reject) => {
-    const cb = (err, stdout, stderr) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      resolve([stdout, stderr]);
-    };
-
-    try {
-      cp.execFile(file, args, options, cb);
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-async function browse(url) {
-  assert(typeof url === 'string');
-
-  const options = {
+  const ps = cp.spawn(file, args, {
     cwd,
     env,
-    encoding: 'utf8',
-    stdio: 'ignore'
-  };
+    detached: true,
+    stdio: 'ignore',
+    shell
+  });
+
+  ps.unref();
+
+  return ps;
+}
+
+function navigate(url, cmd) {
+  assert(typeof url === 'string');
+  assert(cmd == null || typeof cmd === 'string');
+
+  // Any OS:
+  if (cmd) {
+    if (cmd.indexOf('%s') !== -1) {
+      cmd = cmd.replace(/%s/g, url);
+      return spawn(cmd, [], true);
+    }
+
+    return spawn(cmd, [url], true);
+  }
 
   // Windows:
   // https://stackoverflow.com/questions/3739327
   if (process.platform === 'win32')
-    return spawn('explorer', [url], options);
+    return spawn('explorer', [url]);
 
   // OSX:
   // https://superuser.com/questions/85151
   if (process.platform === 'darwin')
-    return spawn('open', [url], options);
+    return spawn('open', [url]);
 
   // Unix:
   const name = env.BROWSER;
 
   if (!name)
-    return spawn('xdg-open', [url], options);
+    return spawn('xdg-open', [url]);
 
   if (/(?:chrome|chromium)/i.test(name))
-    return spawn(name, [`--app=${url}`], options);
+    return spawn(name, [`--app=${url}`]);
 
-  return spawn(name, [url], options);
+  return spawn(name, [url]);
 }
 
 /*
@@ -248,8 +249,9 @@ process.on('unhandledRejection', (err, promise) => {
   let doExit = false;
   let recurse = false;
   let listen = false;
-  let browser = false;
-  let port = 8080;
+  let open = false;
+  let cmd = '';
+  let port = -1;
 
   if (process.platform === 'win32')
     mocha.windows = true;
@@ -470,17 +472,11 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       }
 
-      case '--browser': {
-        listen = true;
-        browser = true;
-        break;
-      }
-
       case '-p':
       case '--port': {
         port = next >>> 0;
 
-        if (port === 0 || port > 0xffff) {
+        if (!next || port > 0xffff) {
           stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
@@ -490,6 +486,25 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       }
 
+      case '-o':
+      case '--open': {
+        listen = true;
+        open = true;
+        break;
+      }
+
+      case '-m':
+      case '--cmd': {
+        if (!next) {
+          stderr.write(`Invalid option for ${arg}.\n`);
+          return 1;
+        }
+        cmd = next;
+        i += 1;
+        break;
+      }
+
+      case '-z':
       case '--console': {
         mocha.console = true;
         break;
@@ -526,9 +541,13 @@ process.on('unhandledRejection', (err, promise) => {
     files.sort();
 
   if (listen) {
-    const serve = require('../lib/serve');
-    const server = serve(mocha, files, requires, port);
-    const url = `http://localhost:${port}/`;
+    if (port === -1)
+      port = open ? 0 : 8080;
+
+    const Server = require('../lib/serve');
+    const server = new Server(mocha, files, requires);
+    const addr = await server.listen(port, 'localhost');
+    const url = `http://localhost:${addr.port}/`;
 
     server.on('error', (err) => {
       stderr.write('Server Error:\n');
@@ -540,8 +559,8 @@ process.on('unhandledRejection', (err, promise) => {
 
     stdout.write(`Server listening at: ${url}\n`);
 
-    if (browser)
-      await browse(url);
+    if (open)
+      navigate(url, cmd);
 
     return -1;
   }
