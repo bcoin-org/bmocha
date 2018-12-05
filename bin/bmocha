@@ -74,6 +74,7 @@ const HELP = `
     --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
+    --console               use console in browser
     -h, --help              output usage information
 `;
 
@@ -426,6 +427,11 @@ process.on('unhandledRejection', (err, promise) => {
 
         i += 1;
 
+        break;
+      }
+
+      case '--console': {
+        mocha.console = true;
         break;
       }
 
