@@ -20,7 +20,7 @@
   },
   "scripts": {
     "lint": "eslint bin/* lib/ test/ || exit 0",
-    "test": "bmocha --reporter spec test/*-test.js"
+    "test": "./bin/bmocha --reporter spec test/*-test.js"
   },
   "engines": {
     "node": ">=8.0.0"
