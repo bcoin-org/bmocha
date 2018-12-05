@@ -18,7 +18,8 @@ const bmocha = require('../lib/bmocha');
 const {
   Mocha,
   SpecReporter,
-  JSONReporter
+  JSONReporter,
+  JSONStreamReporter
 } = bmocha;
 
 const {
@@ -66,10 +67,17 @@ const HELP = `
     --exit                 force shutdown of the event loop after test run
     --no-timeouts          disables timeouts
     --recursive            include sub directories
+    --reporters            display available reporters
     --retries <times>      set numbers of time to retry a failed test case
     --file <file>          include a file to be ran during the suite
     --exclude <file>       a file or glob pattern to ignore
     -h, --help             output usage information
+`;
+
+const REPORTERS = `
+    spec - hierarchical spec list
+    json - single json object
+    json-stream - newline delimited json events
 `;
 
 /*
@@ -177,6 +185,9 @@ process.on('unhandledRejection', (err, promise) => {
   const fileArgs = [];
   const requires = [];
 
+  if (process.platform === 'win32')
+    mocha.windows = true;
+
   let Reporter = SpecReporter;
   let files = [];
   let sort = false;
@@ -229,6 +240,9 @@ process.on('unhandledRejection', (err, promise) => {
             break;
           case 'json':
             Reporter = JSONReporter;
+            break;
+          case 'json-stream':
+            Reporter = JSONStreamReporter;
             break;
           default:
             stderr.write(`Invalid reporter: '${next}'.\n`);
@@ -296,6 +310,9 @@ process.on('unhandledRejection', (err, promise) => {
       case '--recursive':
         recurse = true;
         break;
+      case '--reporters':
+        stdout.write(REPORTERS + '\n');
+        return 0;
       case '--retries':
         mocha.retries = next >>> 0;
         i += 1;
