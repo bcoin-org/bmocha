@@ -71,7 +71,7 @@ const HELP = `
     --reporters             display available reporters
     --retries <times>       set numbers of time to retry a failed test case
     --file <file>           include a file to be ran during the suite
-    --exclude <file>        a file or glob pattern to ignore
+    --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
     -h, --help              output usage information
