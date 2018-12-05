@@ -193,17 +193,28 @@ async function spawn(file, args, options) {
 async function browse(url) {
   assert(typeof url === 'string');
 
-  const name = env.BROWSER;
-
-  if (!name)
-    throw new Error('No BROWSER env variable set.');
-
   const options = {
     cwd,
     env,
     encoding: 'utf8',
     stdio: 'ignore'
   };
+
+  // Windows:
+  // https://stackoverflow.com/questions/3739327
+  if (process.platform === 'win32')
+    return spawn('explorer', [url], options);
+
+  // OSX:
+  // https://superuser.com/questions/85151
+  if (process.platform === 'darwin')
+    return spawn('open', [url], options);
+
+  // Unix:
+  const name = env.BROWSER;
+
+  if (!name)
+    return spawn('xdg-open', [url], options);
 
   if (/(?:chrome|chromium)/i.test(name))
     return spawn(name, [`--app=${url}`], options);
