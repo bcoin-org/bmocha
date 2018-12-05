@@ -72,7 +72,12 @@ const HELP = `
     --retries <times>       set numbers of time to retry a failed test case
     --file <file>           include a file to be ran during the suite
     --exclude <file>        a file or glob pattern to ignore
+    -p, --port <port>       port to listen on
     -h, --help              output usage information
+
+  Commands:
+
+    init <path>             initialize a client-side mocha setup at <path>
 `;
 
 const REPORTERS = `
@@ -194,6 +199,8 @@ process.on('unhandledRejection', (err, promise) => {
   let sort = false;
   let doExit = false;
   let recurse = false;
+  let port = 8080;
+  let init = false;
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -339,6 +346,19 @@ process.on('unhandledRejection', (err, promise) => {
       case '--help':
         stdout.write(HELP + '\n');
         return 0;
+      case '--port':
+        port = next >>> 0;
+        if (port === 0 || port > 0xffff) {
+          stderr.write('Invalid port.\n');
+          return 1;
+        }
+        break;
+      case 'init':
+        if (i === 2) {
+          init = true;
+          break;
+        }
+        // fallthrough
       default:
         if (arg.length === 0 || arg[0] === '-') {
           stderr.write(`Invalid option: ${arg}.\n`);
@@ -366,6 +386,23 @@ process.on('unhandledRejection', (err, promise) => {
   if (sort)
     files.sort();
 
+  if (init) {
+    const serve = require('../lib/serve');
+    const server = serve(mocha, files, requires, port);
+
+    server.on('error', (err) => {
+      stderr.write('Server Error:\n');
+      stderr.write('\n');
+      if (err && err.stack)
+        err = String(err.stack);
+      stderr.write(err + '\n');
+    });
+
+    stdout.write(`Server listening at: http://localhost:${port}/\n`);
+
+    return -1;
+  }
+
   module.paths.push(cwd, join(cwd, 'node_modules'));
 
   for (const file of requires)
@@ -379,7 +416,8 @@ process.on('unhandledRejection', (err, promise) => {
 
   return code;
 })().then((code) => {
-  process.on('exit', () => exit(code));
+  if (code !== -1)
+    process.on('exit', () => exit(code));
 }).catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
