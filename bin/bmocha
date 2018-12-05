@@ -34,8 +34,7 @@ const {
   Error,
   process,
   RegExp,
-  Set,
-  String
+  Set
 } = global;
 
 const cwd = process.cwd();
@@ -230,9 +229,22 @@ function navigate(url, cmd) {
 process.on('unhandledRejection', (err, promise) => {
   stderr.write('Unhandled rejection:\n');
   stderr.write('\n');
+
   if (err && err.stack)
-    err = String(err.stack);
+    err = err.stack;
+
   stderr.write(err + '\n');
+  exit(1);
+});
+
+process.on('multipleResolves', (type, promise, value) => {
+  stderr.write(`Multiple ${type}s:\n`);
+  stderr.write('\n');
+
+  if (value && value.stack)
+    value = value.stack;
+
+  stderr.write(value + '\n');
   exit(1);
 });
 
@@ -558,8 +570,10 @@ process.on('unhandledRejection', (err, promise) => {
     server.on('error', (err) => {
       stderr.write('Server Error:\n');
       stderr.write('\n');
+
       if (err && err.stack)
-        err = String(err.stack);
+        err = err.stack;
+
       stderr.write(err + '\n');
     });
 
@@ -589,8 +603,10 @@ process.on('unhandledRejection', (err, promise) => {
 }).catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
+
   if (err && err.stack)
-    err = String(err.stack);
+    err = err.stack;
+
   stderr.write(err + '\n');
   exit(1);
 });
