@@ -544,7 +544,7 @@ process.on('unhandledRejection', (err, promise) => {
     if (port === -1)
       port = open ? 0 : 8080;
 
-    const Server = require('../lib/serve');
+    const Server = require('../lib/server');
     const server = new Server(mocha, files, requires);
     const addr = await server.listen(port, 'localhost');
     const url = `http://localhost:${addr.port}/`;
