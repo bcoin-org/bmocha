@@ -72,12 +72,9 @@ const HELP = `
     --retries <times>       set numbers of time to retry a failed test case
     --file <file>           include a file to be ran during the suite
     --exclude <file>        a file or glob pattern to ignore
-    -p, --port <port>       port to listen on
+    -l, --listen            serve client-side test files (requires browserify)
+    -p, --port <port>       port to listen on [8080]
     -h, --help              output usage information
-
-  Commands:
-
-    init <path>             initialize a client-side mocha setup at <path>
 `;
 
 const REPORTERS = `
@@ -191,16 +188,16 @@ process.on('unhandledRejection', (err, promise) => {
   const fileArgs = [];
   const requires = [];
 
-  if (process.platform === 'win32')
-    mocha.windows = true;
-
   let Reporter = SpecReporter;
   let files = [];
   let sort = false;
   let doExit = false;
   let recurse = false;
+  let listen = false;
   let port = 8080;
-  let init = false;
+
+  if (process.platform === 'win32')
+    mocha.windows = true;
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -212,36 +209,51 @@ process.on('unhandledRejection', (err, promise) => {
 
     switch (arg) {
       case '-V':
-      case '--version':
+      case '--version': {
         stdout.write(VERSION + '\n');
         return 0;
+      }
+
       case '-c':
-      case '--colors':
+      case '--colors': {
         mocha.colors = true;
         break;
+      }
+
       case '-C':
-      case '--no-colors':
+      case '--no-colors': {
         mocha.colors = false;
         break;
+      }
+
       case '-O':
-      case '--reporter-options':
+      case '--reporter-options': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for: ${arg}.\n`);
           return 1;
         }
+
         for (const opt of next.split(',')) {
           const parts = opt.split('=');
-          if (parts.length > 2 || parts.length === 0)
-            throw new Error(`Invalid reporter option '${opt}'.`);
-          else if (parts.length === 2)
+
+          if (parts.length > 2 || parts.length === 0) {
+            stderr.write(`Invalid reporter option ${opt}.\n`);
+            return 1;
+          }
+
+          if (parts.length === 2)
             options[parts[0]] = parts[1];
           else
             options[parts[0]] = true;
         }
+
         i += 1;
+
         break;
+      }
+
       case '-R':
-      case '--reporter':
+      case '--reporter': {
         switch (next) {
           case 'spec':
             Reporter = SpecReporter;
@@ -256,116 +268,177 @@ process.on('unhandledRejection', (err, promise) => {
             stderr.write(`Invalid reporter: '${next}'.\n`);
             return 1;
         }
+
         i += 1;
+
         break;
+      }
+
       case '-S':
-      case '--sort':
+      case '--sort': {
         sort = true;
         break;
+      }
+
       case '-b':
-      case '--bail':
+      case '--bail': {
         mocha.bail = true;
         break;
+      }
+
       case '-g':
-      case '--grep':
+      case '--grep': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
         mocha.grep = new RegExp(next);
+
         i += 1;
+
         break;
+      }
+
       case '-f':
-      case '--fgrep':
+      case '--fgrep': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
         mocha.fgrep = next;
+
         i += 1;
+
         break;
+      }
+
       case '-i':
-      case '--invert':
+      case '--invert': {
         mocha.invert = true;
         break;
+      }
+
       case '-r':
-      case '--require':
+      case '--require': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
         if (exists(next) || exists(`${next}.js`))
           next = resolve(cwd, next);
+
         requires.push(next);
         i += 1;
+
         break;
+      }
+
       case '-s':
-      case '--slow':
+      case '--slow': {
         mocha.slow = next >>> 0;
         i += 1;
         break;
+      }
+
       case '-t':
-      case '--timeout':
+      case '--timeout': {
         mocha.timeout = next >>> 0;
         i += 1;
         break;
-      case '--no-timeouts':
+      }
+
+      case '--no-timeouts': {
         mocha.timeouts = false;
         break;
-      case '--exit':
+      }
+
+      case '--exit': {
         doExit = true;
         break;
-      case '--recursive':
+      }
+
+      case '--recursive': {
         recurse = true;
         break;
-      case '--reporters':
+      }
+
+      case '--reporters': {
         stdout.write(REPORTERS + '\n');
         return 0;
-      case '--retries':
+      }
+
+      case '--retries': {
         mocha.retries = next >>> 0;
         i += 1;
         break;
-      case '--file':
+      }
+
+      case '--file': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
         fileArgs.push(next);
+
         i += 1;
+
         break;
-      case '--exclude':
+      }
+
+      case '--exclude': {
         if (!next) {
-          stderr.write('Invalid argument.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
         next = basename(next);
         excludes.add(next);
+
         i += 1;
+
         break;
+      }
+
       case '-h':
-      case '--help':
+      case '--help': {
         stdout.write(HELP + '\n');
         return 0;
-      case '--port':
+      }
+
+      case '-l':
+      case '--listen': {
+        listen = true;
+        break;
+      }
+
+      case '-p':
+      case '--port': {
         port = next >>> 0;
+
         if (port === 0 || port > 0xffff) {
-          stderr.write('Invalid port.\n');
+          stderr.write(`Invalid option for ${arg}.\n`);
           return 1;
         }
+
+        i += 1;
+
         break;
-      case 'init':
-        if (i === 2) {
-          init = true;
-          break;
-        }
-        // fallthrough
-      default:
+      }
+
+      default: {
         if (arg.length === 0 || arg[0] === '-') {
-          stderr.write(`Invalid option: ${arg}.\n`);
+          stderr.write(`Invalid argument: ${arg}.\n`);
           return 1;
         }
+
         files.push(arg);
+
         break;
+      }
     }
   }
 
@@ -386,7 +459,7 @@ process.on('unhandledRejection', (err, promise) => {
   if (sort)
     files.sort();
 
-  if (init) {
+  if (listen) {
     const serve = require('../lib/serve');
     const server = serve(mocha, files, requires, port);
 
