@@ -39,7 +39,7 @@ const {
 } = global;
 
 const cwd = process.cwd();
-const {argv, stdout, stderr, exit} = process;
+const {argv, env, stdout, stderr, exit} = process;
 
 /*
  * Constants
@@ -73,6 +73,7 @@ const HELP = `
     --file <file>           include a file to be ran during the suite
     --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
+    --browser               open browser after serving
     -p, --port <port>       port to listen on [8080]
     --console               use console in browser
     -h, --help              output usage information
@@ -169,6 +170,47 @@ function exclude(files, excludes) {
   });
 }
 
+async function spawn(file, args, options) {
+  const cp = require('child_process');
+
+  return new Promise((resolve, reject) => {
+    const cb = (err, stdout, stderr) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve([stdout, stderr]);
+    };
+
+    try {
+      cp.execFile(file, args, options, cb);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function browse(url) {
+  assert(typeof url === 'string');
+
+  const name = env.BROWSER;
+
+  if (!name)
+    throw new Error('No BROWSER env variable set.');
+
+  const options = {
+    cwd,
+    env,
+    encoding: 'utf8',
+    stdio: 'ignore'
+  };
+
+  if (/(?:chrome|chromium)/i.test(name))
+    return spawn(name, [`--app=${url}`], options);
+
+  return spawn(name, [url], options);
+}
+
 /*
  * Main
  */
@@ -195,6 +237,7 @@ process.on('unhandledRejection', (err, promise) => {
   let doExit = false;
   let recurse = false;
   let listen = false;
+  let browser = false;
   let port = 8080;
 
   if (process.platform === 'win32')
@@ -416,6 +459,12 @@ process.on('unhandledRejection', (err, promise) => {
         break;
       }
 
+      case '--browser': {
+        listen = true;
+        browser = true;
+        break;
+      }
+
       case '-p':
       case '--port': {
         port = next >>> 0;
@@ -468,6 +517,7 @@ process.on('unhandledRejection', (err, promise) => {
   if (listen) {
     const serve = require('../lib/serve');
     const server = serve(mocha, files, requires, port);
+    const url = `http://localhost:${port}/`;
 
     server.on('error', (err) => {
       stderr.write('Server Error:\n');
@@ -477,7 +527,10 @@ process.on('unhandledRejection', (err, promise) => {
       stderr.write(err + '\n');
     });
 
-    stdout.write(`Server listening at: http://localhost:${port}/\n`);
+    stdout.write(`Server listening at: ${url}\n`);
+
+    if (browser)
+      await browse(url);
 
     return -1;
   }
