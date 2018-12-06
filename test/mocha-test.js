@@ -103,10 +103,17 @@ describe('Mocha', function() {
           assert.strictEqual(1, 1);
         });
 
+        let i = 0;
+
         it('should fail (randomly)', function() {
           this.retries(1000);
-          if (Math.random() < 0.30)
+          i += 1;
+          if (i === 1 || Math.random() < 0.30)
             assert.strictEqual(0, 1);
+        });
+
+        it('should have retried', () => {
+          assert(i > 1);
         });
       });
 
