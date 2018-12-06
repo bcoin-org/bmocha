@@ -287,10 +287,9 @@ function onExit(handler) {
 
   const onError = (err) => {
     if (err && err.stack)
-      stderr.write(err.stack + '\n');
-    else
-      stderr.write(err + '\n');
+      err = err.stack;
 
+    stderr.write(err + '\n');
     exit(1);
   };
 
@@ -339,6 +338,10 @@ function runHeadless(url, extra = []) {
   const cp = require('child_process');
 
   const file = findChrome();
+
+  if (!file)
+    throw new Error('Could not find chrome binary.');
+
   const port = 1000 + Math.floor(Math.random() * (0x10000 - 1000));
 
   const args = [
@@ -732,6 +735,7 @@ process.on('multipleResolves', (type, promise, value) => {
       port = open ? 0 : 8080;
 
     const server = new Server(mocha, files, requires, {
+      doExit,
       useConsole,
       headless
     });
