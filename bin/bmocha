@@ -226,6 +226,9 @@ function navigate(url, cmd) {
  * Main
  */
 
+process.env.BMOCHA = '1';
+process.env.NODE_TEST = '1';
+
 process.on('unhandledRejection', (err, promise) => {
   stderr.write('Unhandled rejection:\n');
   stderr.write('\n');
