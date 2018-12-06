@@ -74,6 +74,7 @@ const HELP = `
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
     -o, --open              open browser after serving
+    -H, --headless          run tests in headless chrome
     -m, --cmd <cmd>         set browser command
     -z, --console           use console in browser
     -h, --help              output usage information
@@ -222,6 +223,159 @@ function navigate(url, cmd) {
   return spawn(name, [url]);
 }
 
+function findFile(files) {
+  assert(Array.isArray(files));
+
+  for (const file of files) {
+    if (exists(file))
+      return file;
+  }
+
+  return null;
+}
+
+function findChrome() {
+  // See: https://github.com/karma-runner/karma-chrome-launcher
+  if (process.platform === 'darwin') {
+    return findFile([
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ]);
+  }
+
+  if (process.platform === 'win32') {
+    const bin = '\\Google\\Chrome\\Application\\chrome.exe';
+    const files = [];
+
+    for (const dir of [env.LOCALAPPDATA,
+                       env.PROGRAMFILES,
+                       env['PROGRAMFILES(X86)']]) {
+      if (!dir || dir.length === 0)
+        continue;
+
+      files.push(join(dir, bin));
+    }
+
+    return findFile(files);
+  }
+
+  if (!env.PATH)
+    return null;
+
+  const files = [];
+
+  for (const name of ['chromium',
+                      'google-chrome',
+                      'google-chrome-stable']) {
+    for (const dir of env.PATH.split(':')) {
+      if (dir.length === 0)
+        continue;
+
+      files.push(join(dir, name));
+    }
+  }
+
+  return findFile(files);
+}
+
+function onExit(handler) {
+  assert(typeof handler === 'function');
+
+  const onSighup = () => exit(1 | 0x80);
+  const onSigint = () => exit(2 | 0x80);
+  const onSigterm = () => exit(15 | 0x80);
+
+  const onError = (err) => {
+    if (err && err.stack)
+      stderr.write(err.stack + '\n');
+    else
+      stderr.write(err + '\n');
+
+    exit(1);
+  };
+
+  process.once('exit', handler);
+
+  if (process.listenerCount('SIGHUP') === 0)
+    process.once('SIGHUP', onSighup);
+
+  if (process.listenerCount('SIGINT') === 0)
+    process.once('SIGINT', onSigint);
+
+  if (process.listenerCount('SIGTERM') === 0)
+    process.once('SIGTERM', onSigterm);
+
+  if (process.listenerCount('uncaughtException') === 0)
+    process.once('uncaughtException', onError);
+
+  if (process.listenerCount('unhandledRejection') === 0)
+    process.once('unhandledRejection', onError);
+
+  process.on('newListener', (name) => {
+    switch (name) {
+      case 'SIGHUP':
+        process.removeListener(name, onSighup);
+        break;
+      case 'SIGINT':
+        process.removeListener(name, onSigint);
+        break;
+      case 'SIGTERM':
+        process.removeListener(name, onSigterm);
+        break;
+      case 'uncaughtException':
+        process.removeListener(name, onError);
+        break;
+      case 'unhandledRejection':
+        process.removeListener(name, onError);
+        break;
+    }
+  });
+}
+
+function runHeadless(url, extra = []) {
+  assert(typeof url === 'string');
+  assert(Array.isArray(extra));
+
+  const cp = require('child_process');
+
+  const file = findChrome();
+  const port = 1000 + Math.floor(Math.random() * (0x10000 - 1000));
+
+  const args = [
+    '--headless',
+    '--disable-gpu',
+    `--remote-debugging-port=${port}`,
+    ...extra,
+    url
+  ];
+
+  const ps = cp.spawn(file, args, {
+    cwd,
+    env,
+    detached: false,
+    stdio: 'ignore',
+    shell: false
+  });
+
+  ps.unref();
+
+  ps.on('error', (err) => {
+    stderr.write('Child Process Error:\n');
+
+    if (err && err.stack)
+      err = err.stack;
+
+    stderr.write(err + '\n');
+    exit(1);
+  });
+
+  onExit(() => {
+    ps.kill('SIGTERM');
+  });
+
+  return [[file, ...args], ps];
+}
+
 /*
  * Main
  */
@@ -265,7 +419,9 @@ process.on('multipleResolves', (type, promise, value) => {
   let recurse = false;
   let listen = false;
   let open = false;
+  let headless = false;
   let cmd = '';
+  let useConsole = false;
   let port = -1;
 
   if (process.platform === 'win32')
@@ -509,6 +665,14 @@ process.on('multipleResolves', (type, promise, value) => {
         break;
       }
 
+      case '-H':
+      case '--headless': {
+        listen = true;
+        open = true;
+        headless = true;
+        break;
+      }
+
       case '-m':
       case '--cmd': {
         if (!next) {
@@ -527,7 +691,7 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-z':
       case '--console': {
-        mocha.console = true;
+        useConsole = true;
         break;
       }
 
@@ -562,11 +726,16 @@ process.on('multipleResolves', (type, promise, value) => {
     files.sort();
 
   if (listen) {
+    const Server = require('../lib/server');
+
     if (port === -1)
       port = open ? 0 : 8080;
 
-    const Server = require('../lib/server');
-    const server = new Server(mocha, files, requires);
+    const server = new Server(mocha, files, requires, {
+      useConsole,
+      headless
+    });
+
     const addr = await server.listen(port, 'localhost');
     const url = `http://localhost:${addr.port}/`;
 
@@ -579,6 +748,11 @@ process.on('multipleResolves', (type, promise, value) => {
 
       stderr.write(err + '\n');
     });
+
+    if (headless) {
+      runHeadless(url);
+      return -1;
+    }
 
     stdout.write(`Server listening at: ${url}\n`);
 
