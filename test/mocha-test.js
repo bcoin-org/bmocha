@@ -6,9 +6,16 @@
 
 const assert = require('assert');
 const fs = require('fs');
-const hooks = require('perf_hooks');
 const {resolve, sep} = require('path');
 const wrap = require('./util/wrap');
+
+let hooks = null;
+
+try {
+  hooks = require('perf_hooks');
+} catch (e) {
+  ;
+}
 
 const fsAccess = wrap(fs.access);
 const fsExists = wrap(fs.exists);
@@ -23,20 +30,6 @@ const z = `i-dont-exist${y}`;
 const FILE = resolve(__dirname, '..', 'package.json');
 const NOENT = resolve(__dirname, '..', z);
 const ACCES = `${__dirname}${sep}..${sep}..${sep}${z}`;
-
-if (process.browser) {
-  assert.rejects = async (func, ...args) => {
-    try {
-      await func();
-    } catch (e) {
-      assert.throws(() => {
-        throw e;
-      }, ...args);
-      return;
-    }
-    assert.throws(() => {}, ...args);
-  };
-}
 
 describe('Mocha', function() {
   describe('Sanity', function() {
@@ -152,7 +145,6 @@ describe('Mocha', function() {
       assert(typeof process.env.NODE_TEST === 'string');
       assert(typeof process.env.BMOCHA === 'string');
       assert(typeof process.pid === 'number');
-      assert(typeof process.ppid === 'number');
       assert(typeof process.version === 'string' && process.version.length > 0);
       assert(process.versions && typeof process.versions === 'object');
       assert(typeof process.versions.node === 'string');
@@ -210,13 +202,15 @@ describe('Mocha', function() {
     });
   });
 
-  describe('Performance', function() {
-    it('should have perf hooks', () => {
-      assert(hooks && typeof hooks === 'object');
-      assert(typeof hooks.performance === 'object');
-      assert(typeof hooks.performance.now() === 'number');
+  if (hooks) {
+    describe('Performance', function() {
+      it('should have perf hooks', () => {
+        assert(hooks && typeof hooks === 'object');
+        assert(typeof hooks.performance === 'object');
+        assert(typeof hooks.performance.now() === 'number');
+      });
     });
-  });
+  }
 
   describe('FS', function() {
     it('should access file', () => {
@@ -288,6 +282,9 @@ describe('Mocha', function() {
         fs.statSync(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
+
+    if (!assert.rejects)
+      return;
 
     it('should access file (async)', async () => {
       await fsAccess(FILE, fs.constants.R_OK);
@@ -438,6 +435,9 @@ describe('Mocha', function() {
         fs.statSync(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
+
+    if (!assert.rejects)
+      return;
 
     it('should access file (async)', async () => {
       await fs.access(FILE, fs.constants.R_OK);
