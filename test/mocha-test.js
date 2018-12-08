@@ -31,6 +31,8 @@ const FILE = resolve(__dirname, '..', 'package.json');
 const NOENT = resolve(__dirname, '..', z);
 const ACCES = `${__dirname}${sep}..${sep}..${sep}${z}`;
 
+let called = 0;
+
 describe('Mocha', function() {
   describe('Sanity', function() {
     describe('Level 1', function() {
@@ -59,28 +61,33 @@ describe('Mocha', function() {
         assert.strictEqual(x, 1);
         assert.strictEqual(y, 1);
         assert.strictEqual(1, 1);
+        called += 1;
       });
 
       it('should fail (randomly)', function() {
         this.retries(1000);
         if (Math.random() < 0.30)
           assert.strictEqual(0, 1);
+        called += 1;
       });
 
       it('should take a while (1)', async () => {
         assert.strictEqual(x, 5);
         await new Promise(r => setTimeout(r, 40));
+        called += 1;
       });
 
       it('should take a while (2)', async () => {
         assert.strictEqual(x, 7);
         await new Promise(r => setTimeout(r, 130));
+        called += 1;
       });
 
       it('should take a while (3)', (cb) => {
         this.timeout(2000);
         assert.strictEqual(x, 9);
         setTimeout(cb, 30);
+        called += 1;
       });
 
       describe('Level 2', function() {
@@ -94,6 +101,7 @@ describe('Mocha', function() {
           assert.strictEqual(x, 13);
           assert.strictEqual(y, 1);
           assert.strictEqual(1, 1);
+          called += 1;
         });
 
         let i = 0;
@@ -103,26 +111,31 @@ describe('Mocha', function() {
           i += 1;
           if (i === 1 || Math.random() < 0.30)
             assert.strictEqual(0, 1);
+          called += 1;
         });
 
         it('should have retried', () => {
           assert(i > 1);
+          called += 1;
         });
       });
 
       it('should happen before describe', () => {
         assert.strictEqual(x, 11);
+        called += 1;
       });
     });
 
     describe('Level 3', function() {
       it('should skip', function() {
         this.skip();
+        called += 1;
         assert.strictEqual(0, 1);
       });
 
       it('should not skip', function() {
         assert.strictEqual(1, 1);
+        called += 1;
       });
     });
   });
@@ -131,6 +144,7 @@ describe('Mocha', function() {
     it('should do setImmediate', (cb) => {
       assert(typeof setImmediate === 'function');
       setImmediate(cb);
+      called += 1;
     });
   });
 
@@ -148,6 +162,7 @@ describe('Mocha', function() {
       assert(typeof process.version === 'string' && process.version.length > 0);
       assert(process.versions && typeof process.versions === 'object');
       assert(typeof process.versions.node === 'string');
+      called += 1;
     });
 
     it('should have streams', () => {
@@ -157,6 +172,7 @@ describe('Mocha', function() {
       assert(typeof process.stdin.on === 'function');
       assert(typeof process.stdout.write === 'function');
       assert(typeof process.stderr.write === 'function');
+      called += 1;
     });
 
     it('should do hrtime', () => {
@@ -172,6 +188,7 @@ describe('Mocha', function() {
 
       assert(typeof result[0] === 'number');
       assert(typeof result[1] === 'number');
+      called += 1;
     });
 
     if (process.browser || process.hrtime.bigint) {
@@ -194,11 +211,13 @@ describe('Mocha', function() {
       assert(typeof mem.heapTotal === 'number');
       assert(typeof mem.heapUsed === 'number');
       assert(typeof mem.external === 'number');
+      called += 1;
     });
 
     it('should get uptime', () => {
       assert(typeof process.uptime === 'function');
       assert(typeof process.uptime() === 'number');
+      called += 1;
     });
   });
 
@@ -223,12 +242,16 @@ describe('Mocha', function() {
       assert.throws(() => {
         fs.accessSync(ACCES, fs.constants.R_OK);
       }, process.browser ? /EACCES/ : /ENOENT/);
+
+      called += 1;
     });
 
     it('should check file existence', () => {
       assert(fs.existsSync(FILE));
       assert(!fs.existsSync(NOENT));
       assert(!fs.existsSync(ACCES));
+
+      called += 1;
     });
 
     it('should lstat file', () => {
@@ -242,6 +265,8 @@ describe('Mocha', function() {
       assert.throws(() => {
         fs.lstatSync(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
+
+      called += 1;
     });
 
     it('should read file', () => {
@@ -257,6 +282,8 @@ describe('Mocha', function() {
       assert.throws(() => {
         fs.readFileSync(ACCES, 'utf8');
       }, process.browser ? /EACCES/ : /ENOENT/);
+
+      called += 1;
     });
 
     it('should read file (buffer)', () => {
@@ -268,6 +295,8 @@ describe('Mocha', function() {
       const json = JSON.parse(text);
 
       assert.strictEqual(json.name, 'bmocha');
+
+      called += 1;
     });
 
     it('should stat file', () => {
@@ -281,6 +310,8 @@ describe('Mocha', function() {
       assert.throws(() => {
         fs.statSync(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
+
+      called += 1;
     });
 
     if (!assert.rejects)
@@ -510,29 +541,42 @@ describe('Mocha', function() {
     });
   });
 
-  if (!process.browser)
-    return;
+  if (process.browser) {
+    describe('Worker', function() {
+      it('should register worker', () => {
+        assert(typeof register === 'function');
 
-  describe('Worker', function() {
-    it('should register worker', () => {
-      assert(typeof register === 'function');
-      register('/worker.js', [__dirname, 'util', 'worker.js']);
+        register('/worker.js', [__dirname, 'util', 'worker.js']);
+      });
+
+      it('should create worker', (cb) => {
+        const worker = new Worker('/worker.js');
+
+        worker.onmessage = ({data}) => {
+          try {
+            assert(typeof data === 'string');
+            assert(data === 'hello world');
+            cb();
+          } catch (e) {
+            cb(e);
+          }
+        };
+
+        worker.postMessage('hello');
+      });
     });
+  }
 
-    it('should create worker', (cb) => {
-      const worker = new Worker('/worker.js');
-
-      worker.onmessage = ({data}) => {
-        try {
-          assert(typeof data === 'string');
-          assert(data === 'hello world');
-          cb();
-        } catch (e) {
-          cb(e);
-        }
-      };
-
-      worker.postMessage('hello');
+  describe('Paranoia', function() {
+    it('should have called a total number of tests', () => {
+      // Give _explicit_ output to the user to
+      // prove we're actually running these things.
+      if (called !== 23) {
+        console.error(`      \x1b[31mx Needed 23 tests, got: ${called}\x1b[m`);
+        process.exit(1);
+        return;
+      }
+      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled 23 tests\x1b[m');
     });
   });
 });
