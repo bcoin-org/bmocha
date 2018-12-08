@@ -36,9 +36,11 @@ describe('Deep Equal', function() {
     assert.throws(() => {});
   });
 
-  it('should fail (8)', async () => {
-    await assert.rejects(async () => {});
-  });
+  if (assert.rejects) {
+    it('should fail (8)', async () => {
+      await assert.rejects(async () => {});
+    });
+  }
 
   it('should fail (9)', () => {
     const makeObj = () => {
@@ -71,6 +73,9 @@ describe('Deep Equal', function() {
     const a = makeObj();
     const b = makeObj();
 
+    delete a.map2;
+    delete b.map2;
+
     a.number = 0;
     a.z = 1;
 
@@ -97,6 +102,7 @@ describe('Deep Equal', function() {
         float32array: new Float32Array([1, 2, 3]),
         args: arguments,
         map: new Map([[1, 'a'], [2, 'b'], [3, 'c']]),
+        map2: new Map([[{foo:1}, 'bar'], [/foo/, 'bar'], ['spaced key', 100]]),
         'spaced key': 100,
         set: new Set([1, 2, 3]),
         array: [1, 2, 3],
@@ -104,6 +110,12 @@ describe('Deep Equal', function() {
       };
     };
 
-    assert.notDeepStrictEqual(makeObj(), makeObj());
+    const a = makeObj();
+    const b = makeObj();
+
+    delete a.map2;
+    delete b.map2;
+
+    assert.notDeepStrictEqual(a, b);
   });
 });
