@@ -772,8 +772,10 @@ process.on('multipleResolves', (type, promise, value) => {
 
   return code;
 })().then((code) => {
-  if (code !== -1)
+  if (code !== -1) {
+    process.exitCode = code;
     process.on('exit', () => exit(code));
+  }
 }).catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
