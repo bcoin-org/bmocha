@@ -20,6 +20,7 @@ try {
 const fsAccess = wrap(fs.access);
 const fsExists = wrap(fs.exists);
 const fsLstat = wrap(fs.lstat);
+const fsReaddir = wrap(fs.readdir);
 const fsReadFile = wrap(fs.readFile);
 const fsStat = wrap(fs.stat);
 
@@ -28,6 +29,7 @@ const y = x.toString(32);
 const z = `i-dont-exist${y}`;
 
 const FILE = resolve(__dirname, '..', 'package.json');
+const DIR = resolve(__dirname, '..');
 const NOENT = resolve(__dirname, '..', z);
 const ACCES = `${__dirname}${sep}..${sep}..${sep}${z}`;
 
@@ -269,6 +271,23 @@ describe('Mocha', function() {
       called += 1;
     });
 
+    it('should read dir', () => {
+      const list = fs.readdirSync(DIR);
+
+      assert(Array.isArray(list));
+      assert.notStrictEqual(list.indexOf('package.json'), -1);
+
+      assert.throws(() => {
+        fs.readdirSync(NOENT);
+      }, /ENOENT/);
+
+      assert.throws(() => {
+        fs.readdirSync(ACCES);
+      }, process.browser ? /EACCES/ : /ENOENT/);
+
+      called += 1;
+    });
+
     it('should read file', () => {
       const text = fs.readFileSync(FILE, 'utf8');
       const json = JSON.parse(text);
@@ -345,6 +364,21 @@ describe('Mocha', function() {
 
       await assert.rejects(() => {
         return fsLstat(ACCES);
+      }, process.browser ? /EACCES/ : /ENOENT/);
+    });
+
+    it('should read dir (async)', async () => {
+      const list = await fsReaddir(DIR);
+
+      assert(Array.isArray(list));
+      assert.notStrictEqual(list.indexOf('package.json'), -1);
+
+      await assert.rejects(() => {
+        return fsReaddir(NOENT);
+      }, /ENOENT/);
+
+      await assert.rejects(() => {
+        return fsReaddir(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
 
@@ -428,6 +462,21 @@ describe('Mocha', function() {
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
 
+    it('should read dir', () => {
+      const list = fs.readdirSync(DIR);
+
+      assert(Array.isArray(list));
+      assert.notStrictEqual(list.indexOf('package.json'), -1);
+
+      assert.throws(() => {
+        fs.readdirSync(NOENT);
+      }, /ENOENT/);
+
+      assert.throws(() => {
+        fs.readdirSync(ACCES);
+      }, process.browser ? /EACCES/ : /ENOENT/);
+    });
+
     it('should read file', () => {
       const text = fs.readFileSync(FILE, 'utf8');
       const json = JSON.parse(text);
@@ -501,6 +550,21 @@ describe('Mocha', function() {
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
 
+    it('should read dir (async)', async () => {
+      const list = await fs.readdir(DIR);
+
+      assert(Array.isArray(list));
+      assert.notStrictEqual(list.indexOf('package.json'), -1);
+
+      await assert.rejects(() => {
+        return fs.readdir(NOENT);
+      }, /ENOENT/);
+
+      await assert.rejects(() => {
+        return fs.readdir(ACCES);
+      }, process.browser ? /EACCES/ : /ENOENT/);
+    });
+
     it('should read file (async)', async () => {
       const text = await fs.readFile(FILE, 'utf8');
       const json = JSON.parse(text);
@@ -571,12 +635,12 @@ describe('Mocha', function() {
     it('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
       // prove we're actually running these things.
-      if (called !== 23) {
-        console.error(`      \x1b[31mx Needed 23 tests, got: ${called}\x1b[m`);
+      if (called !== 24) {
+        console.error(`      \x1b[31mx Needed 24 tests, got: ${called}\x1b[m`);
         process.exit(1);
         return;
       }
-      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled 23 tests\x1b[m');
+      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled 24 tests\x1b[m');
     });
   });
 });
