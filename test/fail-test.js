@@ -113,7 +113,9 @@ describe('Deep Equal', function() {
     const a = makeObj();
     const b = makeObj();
 
+    delete a.nan;
     delete a.map2;
+    delete b.nan;
     delete b.map2;
 
     assert.notDeepStrictEqual(a, b);
