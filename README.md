@@ -34,6 +34,7 @@ Minimal implementation of mocha.
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
     -o, --open              open browser after serving
+    -H, --headless          run tests in headless chrome
     -m, --cmd <cmd>         set browser command
     -z, --console           use console in browser
     -h, --help              output usage information
