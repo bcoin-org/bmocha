@@ -1,6 +1,6 @@
 # bmocha
 
-Minimal implementation of mocha.
+Minimal implementation of mocha (requires no external dependencies).
 
 ## Usage
 
@@ -96,6 +96,19 @@ const stream = new DOMStream(document.body);
 const mocha = new Mocha(stream);
 
 await mocha.run(...);
+```
+
+### Simple Non-Global Usage
+
+``` js
+const assert = require('assert');
+const {describe, it} = require('bmocha')('nyan');
+
+describe('foobar', () => {
+  it('baz', () => {
+    assert(1 == 1);
+  });
+});
 ```
 
 ## Contribution and License Agreement

@@ -73,7 +73,10 @@ describe('Deep Equal', function() {
     const a = makeObj();
     const b = makeObj();
 
+    delete a.args;
     delete a.map2;
+
+    delete b.args;
     delete b.map2;
 
     a.number = 0;
@@ -113,8 +116,11 @@ describe('Deep Equal', function() {
     const a = makeObj();
     const b = makeObj();
 
+    delete a.args;
     delete a.nan;
     delete a.map2;
+
+    delete b.args;
     delete b.nan;
     delete b.map2;
 

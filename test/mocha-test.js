@@ -35,6 +35,8 @@ const ACCES = `${__dirname}${sep}..${sep}..${sep}${z}`;
 
 const TOTAL_TESTS = 23;
 
+const IS_MOCHA = Boolean(process.env.LOADED_MOCHA_OPTS);
+
 let called = 0;
 
 describe('Mocha', function() {
@@ -152,37 +154,15 @@ describe('Mocha', function() {
     });
   });
 
-  /*
-  describe.only('Foobar 1', function() {
-    it('one', () => {
+  if (!IS_MOCHA) {
+    let i = 0;
+    it('should retry', async (ctx) => {
+      ctx.retries(1000);
+      i += 1;
+      if (i === 1)
+        assert(1 === 0);
     });
-
-    describe('Foobar 2', function() {
-      it.only('two', () => {
-      });
-    });
-  });
-
-  describe.only('Foobar 3', function() {
-    it('three', () => {
-    });
-
-    describe('Foobar 4', function() {
-      it.only('four', () => {
-      });
-    });
-  });
-
-  describe.only('Foobar 5', function() {
-    it('five', () => {
-    });
-
-    describe('Foobar 6', function() {
-      it.only('six', () => {
-      });
-    });
-  });
-  */
+  }
 
   describe('Global', function() {
     it('should do setImmediate', (cb) => {
@@ -200,7 +180,7 @@ describe('Mocha', function() {
       assert(process.env && typeof process.env === 'object');
       assert(typeof process.env.PATH === 'string');
       assert(typeof process.env.HOME === 'string');
-      if (!process.env.LOADED_MOCHA_OPTS) {
+      if (!IS_MOCHA) {
         assert(typeof process.env.NODE_TEST === 'string');
         assert(typeof process.env.BMOCHA === 'string');
       }
