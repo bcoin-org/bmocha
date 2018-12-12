@@ -33,6 +33,8 @@ const DIR = resolve(__dirname, '..');
 const NOENT = resolve(__dirname, '..', z);
 const ACCES = `${__dirname}${sep}..${sep}..${sep}${z}`;
 
+const TOTAL_TESTS = 23;
+
 let called = 0;
 
 describe('Mocha', function() {
@@ -66,28 +68,31 @@ describe('Mocha', function() {
         called += 1;
       });
 
-      it('should fail (randomly)', function() {
+      let i = 0;
+
+      it('should fail (once)', function() {
         this.retries(1000);
-        if (Math.random() < 0.30)
+        i += 1;
+        if (i === 1)
           assert.strictEqual(0, 1);
         called += 1;
       });
 
       it('should take a while (1)', async () => {
-        assert.strictEqual(x, 5);
+        assert.strictEqual(x, 7);
         await new Promise(r => setTimeout(r, 40));
         called += 1;
       });
 
       it('should take a while (2)', async () => {
-        assert.strictEqual(x, 7);
+        assert.strictEqual(x, 9);
         await new Promise(r => setTimeout(r, 130));
         called += 1;
       });
 
       it('should take a while (3)', (cb) => {
         this.timeout(2000);
-        assert.strictEqual(x, 9);
+        assert.strictEqual(x, 11);
         setTimeout(cb, 30);
         called += 1;
       });
@@ -100,7 +105,7 @@ describe('Mocha', function() {
         });
 
         it('should succeed', () => {
-          assert.strictEqual(x, 13);
+          assert.strictEqual(x, 15);
           assert.strictEqual(y, 1);
           assert.strictEqual(1, 1);
           called += 1;
@@ -108,10 +113,10 @@ describe('Mocha', function() {
 
         let i = 0;
 
-        it('should fail (randomly)', function() {
+        it('should fail (once)', function() {
           this.retries(1000);
           i += 1;
-          if (i === 1 || Math.random() < 0.30)
+          if (i === 1)
             assert.strictEqual(0, 1);
           called += 1;
         });
@@ -123,7 +128,7 @@ describe('Mocha', function() {
       });
 
       it('should happen before describe', () => {
-        assert.strictEqual(x, 11);
+        assert.strictEqual(x, 13);
         called += 1;
       });
     });
@@ -135,12 +140,49 @@ describe('Mocha', function() {
         assert.strictEqual(0, 1);
       });
 
+      it.skip('should skip again', function() {
+        called += 1;
+        assert.strictEqual(0, 1);
+      });
+
       it('should not skip', function() {
         assert.strictEqual(1, 1);
         called += 1;
       });
     });
   });
+
+  /*
+  describe.only('Foobar 1', function() {
+    it('one', () => {
+    });
+
+    describe('Foobar 2', function() {
+      it.only('two', () => {
+      });
+    });
+  });
+
+  describe.only('Foobar 3', function() {
+    it('three', () => {
+    });
+
+    describe('Foobar 4', function() {
+      it.only('four', () => {
+      });
+    });
+  });
+
+  describe.only('Foobar 5', function() {
+    it('five', () => {
+    });
+
+    describe('Foobar 6', function() {
+      it.only('six', () => {
+      });
+    });
+  });
+  */
 
   describe('Global', function() {
     it('should do setImmediate', (cb) => {
@@ -158,8 +200,10 @@ describe('Mocha', function() {
       assert(process.env && typeof process.env === 'object');
       assert(typeof process.env.PATH === 'string');
       assert(typeof process.env.HOME === 'string');
-      assert(typeof process.env.NODE_TEST === 'string');
-      assert(typeof process.env.BMOCHA === 'string');
+      if (!process.env.LOADED_MOCHA_OPTS) {
+        assert(typeof process.env.NODE_TEST === 'string');
+        assert(typeof process.env.BMOCHA === 'string');
+      }
       assert(typeof process.pid === 'number');
       assert(typeof process.version === 'string' && process.version.length > 0);
       assert(process.versions && typeof process.versions === 'object');
@@ -635,12 +679,15 @@ describe('Mocha', function() {
     it('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
       // prove we're actually running these things.
-      if (called !== 24) {
-        console.error(`      \x1b[31mx Needed 24 tests, got: ${called}\x1b[m`);
+      if (called !== TOTAL_TESTS) {
+        console.error('      \x1b[31mx Needed %d tests, got: %d\x1b[m',
+                      TOTAL_TESTS, called);
         process.exit(1);
         return;
       }
-      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled 24 tests\x1b[m');
+
+      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled %d tests\x1b[m',
+                    called);
     });
   });
 });
