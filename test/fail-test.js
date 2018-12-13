@@ -5,44 +5,70 @@
 
 const assert = require('assert');
 
+const IS_MOCHA = Boolean(process.env.LOADED_MOCHA_OPTS);
+
 describe('Deep Equal', function() {
   if (assert.bufferEqual) {
-    it('should fail (1)', () => {
+    it('should fail (buffer equal)', () => {
       assert.bufferEqual(Buffer.from('01020304', 'hex'), '010203');
     });
 
-    it('should fail (2)', () => {
+    it('should fail (not buffer equal)', () => {
       assert.notBufferEqual(Buffer.from('010203', 'hex'), '010203');
     });
   }
 
-  it('should fail (3)', () => {
+  it('should fail (strict equal string)', () => {
+    assert.strictEqual('01020304', '010203');
+  });
+
+  it('should fail (not strict equal string)', () => {
+    assert.notStrictEqual('010203', '010203');
+  });
+
+  it('should fail (strict equal number)', () => {
+    assert.strictEqual(1, 2);
+  });
+
+  it('should fail (not strict equal number)', () => {
+    assert.notStrictEqual(1, 1);
+  });
+
+  it('should fail (deep equal string)', () => {
     assert.deepStrictEqual('01020304', '010203');
   });
 
-  it('should fail (4)', () => {
+  it('should fail (not deep equal string)', () => {
     assert.notDeepStrictEqual('010203', '010203');
   });
 
-  it('should fail (5)', () => {
+  it('should fail (deep equal number)', () => {
+    assert.deepStrictEqual(1, 2);
+  });
+
+  it('should fail (not deep equal number)', () => {
+    assert.notDeepStrictEqual(1, 1);
+  });
+
+  it('should fail (fail)', () => {
     assert.fail('foobar');
   });
 
-  it('should fail (6)', () => {
+  it('should fail (assert)', () => {
     assert.ok(false);
   });
 
-  it('should fail (7)', () => {
+  it('should fail (throws)', () => {
     assert.throws(() => {});
   });
 
   if (assert.rejects) {
-    it('should fail (8)', async () => {
+    it('should fail (rejects)', async () => {
       await assert.rejects(async () => {});
     });
   }
 
-  it('should fail (9)', () => {
+  it('should fail (strict equal)', () => {
     const makeObj = () => {
       const now = 1544200539595;
       return {
@@ -85,7 +111,7 @@ describe('Deep Equal', function() {
     assert.deepStrictEqual(a, b);
   });
 
-  it('should fail (10)', () => {
+  it('should fail (not strict equal)', () => {
     const makeObj = () => {
       const now = 1544200539595;
       return {
@@ -126,4 +152,28 @@ describe('Deep Equal', function() {
 
     assert.notDeepStrictEqual(a, b);
   });
+
+  it('should fail (double call)', (cb) => {
+    setImmediate(cb);
+    setImmediate(cb);
+  });
+
+  it('should fail (overspecified promise)', (cb) => {
+    return Promise.resolve();
+  });
+
+  it('should fail (timeout)', (cb) => {
+    ;
+  });
+
+  if (!IS_MOCHA) {
+    it('should succeed (context)', async (ctx) => {
+      assert(ctx && typeof ctx === 'object');
+      assert(typeof ctx.timeout === 'function');
+    });
+  } else {
+    it('should fail (overspecified async func)', async (cb) => {
+      assert(1);
+    });
+  }
 });
