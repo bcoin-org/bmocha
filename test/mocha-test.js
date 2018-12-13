@@ -659,15 +659,23 @@ describe('Mocha', function() {
     it('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
       // prove we're actually running these things.
-      if (called !== TOTAL_TESTS) {
-        console.error('      \x1b[31mx Needed %d tests, got: %d\x1b[m',
-                      TOTAL_TESTS, called);
-        process.exit(1);
-        return;
-      }
+      if (process.env.BMOCHA_REPORTER === 'spec') {
+        const {stderr, exit} = process;
 
-      console.error('      \x1b[32m✓\x1b[m \x1b[90mcalled %d tests\x1b[m',
-                    called);
+        if (called !== TOTAL_TESTS) {
+          stderr.write('      ');
+          stderr.write(`\x1b[31mx Needed ${TOTAL_TESTS} tests,`);
+          stderr.write(` got: ${called}\x1b[m\n`);
+          exit(1);
+          return;
+        }
+
+        stderr.write('      ');
+        stderr.write('\x1b[32m\u2713\x1b[m');
+        stderr.write(` \x1b[90mcalled ${called} tests\x1b[m\n`);
+      } else {
+        assert.strictEqual(called, TOTAL_TESTS);
+      }
     });
   });
 });

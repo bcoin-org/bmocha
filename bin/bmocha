@@ -378,6 +378,7 @@ function runHeadless(url, extra = []) {
  */
 
 process.env.BMOCHA = '1';
+process.env.BMOCHA_REPORTER = 'spec';
 process.env.NODE_TEST = '1';
 
 process.on('unhandledRejection', (err, promise) => {
@@ -703,6 +704,8 @@ process.on('multipleResolves', (type, promise, value) => {
     stderr.write(e.message + '\n');
     return 1;
   }
+
+  env.BMOCHA_REPORTER = reporter;
 
   if (files.length === 0) {
     if (exists('test'))
