@@ -378,7 +378,6 @@ function runHeadless(url, extra = []) {
  */
 
 process.env.BMOCHA = '1';
-process.env.BMOCHA_REPORTER = 'spec';
 process.env.NODE_TEST = '1';
 
 process.on('unhandledRejection', (err, promise) => {
@@ -410,7 +409,7 @@ process.on('multipleResolves', (type, promise, value) => {
   const fileArgs = [];
   const requires = [];
 
-  let reporter = 'spec';
+  let reporter = env.BMOCHA_REPORTER || 'spec';
   let files = [];
   let sort = false;
   let doExit = false;
