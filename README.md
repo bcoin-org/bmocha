@@ -2,6 +2,11 @@
 
 Minimal implementation of mocha (requires no external dependencies).
 
+## Docs
+
+Because bmocha is more or less a full clone of mocha, the MochaJS docs should
+be sufficient for any typical use-case: https://mochajs.org/
+
 ## Usage
 
 ### CLI

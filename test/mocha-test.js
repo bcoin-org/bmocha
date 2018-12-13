@@ -47,11 +47,11 @@ describe('Mocha', function() {
       let x = 0;
       let y = 0;
 
-      beforeEach(() => {
+      beforeEach('named hook', () => {
         x += 1;
       });
 
-      afterEach(() => {
+      afterEach(function namedHook() {
         x += 1;
       });
 
@@ -656,7 +656,7 @@ describe('Mocha', function() {
   }
 
   describe('Paranoia', function() {
-    it('should have called a total number of tests', () => {
+    it.skip('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
       // prove we're actually running these things.
       if (process.env.BMOCHA_REPORTER === 'spec') {
