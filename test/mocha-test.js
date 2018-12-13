@@ -656,7 +656,7 @@ describe('Mocha', function() {
   }
 
   describe('Paranoia', function() {
-    it.skip('should have called a total number of tests', () => {
+    it('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
       // prove we're actually running these things.
       if (process.env.BMOCHA_REPORTER === 'spec') {
