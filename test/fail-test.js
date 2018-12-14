@@ -209,9 +209,28 @@ describe('Fail', function() {
       assert(1);
     });
 
+    // These break mocha:
+    if (!IS_MOCHA) {
+      it('should fail (throwing and catching uncaught error)', () => {
+        setImmediate(() => {
+          throw new Error('foobar 1');
+        });
+      });
+
+      it('should not fail (throwing uncaught error)', () => {
+        setTimeout(() => {
+          throw new Error('foobar 2');
+        }, 1);
+      });
+
+      it('should fail (catching uncaught error)', () => {
+        ;
+      });
+    }
+
     it('should fail (uncaught error)', (cb) => {
       setTimeout(() => {
-        throw new Error('foobar');
+        throw new Error('foobar 3');
       }, 10);
       setTimeout(cb, 50);
     });
@@ -219,7 +238,7 @@ describe('Fail', function() {
     it('should fail (unhandled rejection)', (cb) => {
       setTimeout(() => {
         new Promise((resolve, reject) => {
-          reject(new Error('foobar'));
+          reject(new Error('foobar 4'));
         });
       }, 10);
       setTimeout(cb, 50);
@@ -228,11 +247,38 @@ describe('Fail', function() {
     it('should fail (multiple resolves)', (cb) => {
       setTimeout(() => {
         new Promise((resolve, reject) => {
-          resolve();
-          resolve();
+          resolve(1);
+          resolve(2);
         });
       }, 10);
       setTimeout(cb, 50);
+    });
+
+    it('should fail (resolve & resolve)', () => {
+      return new Promise((resolve, reject) => {
+        resolve(3);
+        resolve(4);
+      });
+    });
+
+    it('should fail (resolve & reject)', () => {
+      return new Promise((resolve, reject) => {
+        resolve(5);
+        reject(new Error('foobar'));
+      });
+    });
+
+    it('should fail (no resolve / throw)', () => {
+      return new Promise((resolve, reject) => {
+        throw new Error('foobar');
+      });
+    });
+
+    it('should fail (resolve & throw)', () => {
+      return new Promise((resolve, reject) => {
+        resolve(6);
+        throw new Error('foobar');
+      });
     });
   });
 

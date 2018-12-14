@@ -761,7 +761,8 @@ function catcher(reject) {
 
   const onMultiple = (type, promise, value) => {
     const kind = inspect.type(value);
-    const err = new Error(`Multiple ${type}s detected for ${kind}.`);
+    const data = inspect.single(value);
+    const err = new Error(`Multiple ${type}s detected for ${kind}: ${data}.`);
 
     err.operator = 'deepStrictEqual';
     err.actual = value;
