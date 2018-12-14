@@ -155,11 +155,32 @@ describe('Mocha', function() {
   });
 
   if (!IS_MOCHA) {
-    let i = 0;
-    it('should retry', async (ctx) => {
+    let x = 0;
+    let y = 0;
+    let z = 0;
+
+    it('should retry', (cb) => {
+      assert(typeof cb === 'function');
+      cb.retries(1000);
+      x += 1;
+      if (x === 1)
+        assert(1 === 0);
+      cb();
+    });
+
+    it('should retry (sync)', (ctx) => {
+      assert(ctx && typeof ctx === 'object');
       ctx.retries(1000);
-      i += 1;
-      if (i === 1)
+      y += 1;
+      if (y === 1)
+        assert(1 === 0);
+    });
+
+    it('should retry (async)', async (ctx) => {
+      assert(ctx && typeof ctx === 'object');
+      ctx.retries(1000);
+      z += 1;
+      if (z === 1)
         assert(1 === 0);
     });
   }

@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const {describe, it} = require('../')();
+const {describe, it} = require('../');
 
 describe('Suite 1', () => {
   it('should run test', () => {

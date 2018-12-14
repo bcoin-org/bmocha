@@ -103,19 +103,6 @@ const mocha = new Mocha(stream);
 await mocha.run(...);
 ```
 
-### Simple Non-Global Usage
-
-``` js
-const assert = require('assert');
-const {describe, it} = require('bmocha')('nyan');
-
-describe('foobar', () => {
-  it('baz', () => {
-    assert(1 == 1);
-  });
-});
-```
-
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code

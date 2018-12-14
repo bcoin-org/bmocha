@@ -12,6 +12,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {Mocha} = require('../lib/bmocha');
 
@@ -32,6 +33,7 @@ const {
 
 const cwd = process.cwd();
 const {argv, env, stdout, stderr, exit} = process;
+const on = process.on.bind(process);
 
 /*
  * Constants
@@ -75,13 +77,17 @@ const HELP = `
 
 const REPORTERS = `
     dot - dot matrix
+    doc - html documentation
     spec - hierarchical spec list
     json - single json object
     progress - progress bar
     list - spec-style listing
+    tap - test-anything-protocol
     landing - unicode landing strip
+    xunit - xunit reporter
     min - minimal reporter (great with --watch)
     json-stream - newline delimited json events
+    markdown - markdown documentation (github flavour)
     nyan - nyan cat!
 `;
 
@@ -373,56 +379,41 @@ function runHeadless(url, extra = []) {
   return [[file, ...args], ps];
 }
 
-/*
- * Main
- */
+function parseArgs() {
+  const options = {
+    __proto__: null,
+    slow: 75,
+    timeout: 2000,
+    timeouts: true,
+    retries: 0,
+    stream: stdout,
+    reporter: env.BMOCHA_REPORTER || 'spec',
+    reporterOptions: Object.create(null),
+    global: true,
+    windows: process.platform === 'win32',
+    colors: Boolean(stdout.isTTY),
+    bail: false,
+    grep: null,
+    fgrep: '',
+    invert: false,
+    requires: [],
+    files: [],
+    exit: false,
+    listen: false,
+    open: false,
+    headless: false,
+    cmd: '',
+    console: false,
+    port: -1
+  };
 
-process.env.BMOCHA = '1';
-process.env.NODE_TEST = '1';
-
-process.on('unhandledRejection', (err, promise) => {
-  stderr.write('Unhandled rejection:\n');
-  stderr.write('\n');
-
-  if (err && err.stack)
-    err = err.stack;
-
-  stderr.write(err + '\n');
-  exit(1);
-});
-
-process.on('multipleResolves', (type, promise, value) => {
-  stderr.write(`Multiple ${type}s:\n`);
-  stderr.write('\n');
-
-  if (value && value.stack)
-    value = value.stack;
-
-  stderr.write(value + '\n');
-  exit(1);
-});
-
-(async () => {
-  const mocha = new Mocha(stdout);
-  const options = Object.create(null);
   const excludes = new Set();
   const fileArgs = [];
-  const requires = [];
+  const reporterOptions = options.reporterOptions;
 
-  let reporter = env.BMOCHA_REPORTER || 'spec';
-  let files = [];
-  let sort = false;
-  let doExit = false;
+  let files = options.files;
   let recurse = false;
-  let listen = false;
-  let open = false;
-  let headless = false;
-  let cmd = '';
-  let useConsole = false;
-  let port = -1;
-
-  if (process.platform === 'win32')
-    mocha.windows = true;
+  let sort = false;
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
@@ -436,40 +427,37 @@ process.on('multipleResolves', (type, promise, value) => {
       case '-V':
       case '--version': {
         stdout.write(VERSION + '\n');
-        return 0;
+        exit(0);
+        break;
       }
 
       case '-c':
       case '--colors': {
-        mocha.colors = true;
+        options.colors = true;
         break;
       }
 
       case '-C':
       case '--no-colors': {
-        mocha.colors = false;
+        options.colors = false;
         break;
       }
 
       case '-O':
       case '--reporter-options': {
-        if (!next) {
-          stderr.write(`Invalid option for: ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for: ${arg}.`);
 
         for (const opt of next.split(',')) {
           const parts = opt.split('=');
 
-          if (parts.length > 2 || parts.length === 0) {
-            stderr.write(`Invalid reporter option ${opt}.\n`);
-            return 1;
-          }
+          if (parts.length > 2 || parts.length === 0)
+            throw new Error(`Invalid reporter option ${opt}.`);
 
           if (parts.length === 2)
-            options[parts[0]] = parts[1];
+            reporterOptions[parts[0]] = parts[1];
           else
-            options[parts[0]] = true;
+            reporterOptions[parts[0]] = true;
         }
 
         i += 1;
@@ -479,12 +467,10 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-R':
       case '--reporter': {
-        if (!next) {
-          stderr.write(`Invalid option for: ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for: ${arg}.`);
 
-        reporter = next;
+        options.reporter = next;
 
         i += 1;
 
@@ -499,18 +485,16 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-b':
       case '--bail': {
-        mocha.bail = true;
+        options.bail = true;
         break;
       }
 
       case '-g':
       case '--grep': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
-        mocha.grep = new RegExp(next);
+        options.grep = new RegExp(next);
 
         i += 1;
 
@@ -519,12 +503,10 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-f':
       case '--fgrep': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
-        mocha.fgrep = next;
+        options.fgrep = next;
 
         i += 1;
 
@@ -533,21 +515,19 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-i':
       case '--invert': {
-        mocha.invert = true;
+        options.invert = true;
         break;
       }
 
       case '-r':
       case '--require': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
         if (exists(next) || exists(`${next}.js`))
           next = resolve(cwd, next);
 
-        requires.push(next);
+        options.requires.push(next);
         i += 1;
 
         break;
@@ -555,25 +535,25 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-s':
       case '--slow': {
-        mocha.slow = next >>> 0;
+        options.slow = next >>> 0;
         i += 1;
         break;
       }
 
       case '-t':
       case '--timeout': {
-        mocha.timeout = next >>> 0;
+        options.timeout = next >>> 0;
         i += 1;
         break;
       }
 
       case '--no-timeouts': {
-        mocha.timeouts = false;
+        options.timeouts = false;
         break;
       }
 
       case '--exit': {
-        doExit = true;
+        options.exit = true;
         break;
       }
 
@@ -584,20 +564,19 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '--reporters': {
         stdout.write(REPORTERS + '\n');
-        return 0;
+        exit(0);
+        break;
       }
 
       case '--retries': {
-        mocha.retries = next >>> 0;
+        options.retries = next >>> 0;
         i += 1;
         break;
       }
 
       case '--file': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
         fileArgs.push(next);
 
@@ -607,10 +586,8 @@ process.on('multipleResolves', (type, promise, value) => {
       }
 
       case '--exclude': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
         next = basename(next);
         excludes.add(next);
@@ -623,25 +600,24 @@ process.on('multipleResolves', (type, promise, value) => {
       case '-h':
       case '--help': {
         stdout.write(HELP + '\n');
-        return 0;
+        exit(0);
+        break;
       }
 
       case '-l':
       case '--listen': {
-        listen = true;
+        options.listen = true;
         break;
       }
 
       case '-p':
       case '--port': {
-        port = next >>> 0;
+        options.port = next >>> 0;
 
-        if (!next || port > 0xffff) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next || options.port > 0xffff)
+          throw new Error(`Invalid option for ${arg}.`);
 
-        listen = true;
+        options.listen = true;
         i += 1;
 
         break;
@@ -649,29 +625,27 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-o':
       case '--open': {
-        listen = true;
-        open = true;
+        options.listen = true;
+        options.open = true;
         break;
       }
 
       case '-H':
       case '--headless': {
-        listen = true;
-        open = true;
-        headless = true;
+        options.listen = true;
+        options.open = true;
+        options.headless = true;
         break;
       }
 
       case '-m':
       case '--cmd': {
-        if (!next) {
-          stderr.write(`Invalid option for ${arg}.\n`);
-          return 1;
-        }
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
 
-        listen = true;
-        open = true;
-        cmd = next;
+        options.listen = true;
+        options.open = true;
+        options.cmd = next;
 
         i += 1;
 
@@ -680,31 +654,25 @@ process.on('multipleResolves', (type, promise, value) => {
 
       case '-z':
       case '--console': {
-        useConsole = true;
+        options.console = true;
         break;
       }
 
       default: {
-        if (arg.length === 0 || arg[0] === '-') {
-          stderr.write(`Invalid argument: ${arg}.\n`);
-          return 1;
-        }
+        if (arg.length === 0 || arg[0] === '-')
+          throw new Error(`Invalid argument: ${arg}.`);
 
-        files.push(arg);
+        options.files.push(arg);
 
         break;
       }
     }
   }
 
-  try {
-    mocha.report(reporter, options);
-  } catch (e) {
-    stderr.write(e.message + '\n');
-    return 1;
+  if (options.listen) {
+    if (options.port === -1)
+      options.port = options.open ? 0 : 8080;
   }
-
-  env.BMOCHA_REPORTER = reporter;
 
   if (files.length === 0) {
     if (exists('test'))
@@ -721,19 +689,73 @@ process.on('multipleResolves', (type, promise, value) => {
   if (sort)
     files.sort();
 
-  if (listen) {
-    const Server = require('../lib/server');
+  options.files = files;
 
-    if (port === -1)
-      port = open ? 0 : 8080;
+  if (typeof reporterOptions.output === 'string') {
+    const output = reporterOptions.output.replace(/^~/, os.homedir());
+    const stream = fs.createWriteStream(output);
 
-    const server = new Server(mocha, files, requires, {
-      doExit,
-      useConsole,
-      headless
+    stream.on('error', (err) => {
+      if (err && err.stack)
+        err = err.stack;
+      stderr.write(err + '\n');
+      exit(1);
     });
 
-    const addr = await server.listen(port, 'localhost');
+    options.stream = stream;
+    options.colors = false;
+  }
+
+  return options;
+}
+
+/*
+ * Bind
+ */
+
+env.BMOCHA = '1';
+env.NODE_TEST = '1';
+
+on('unhandledRejection', (err, promise) => {
+  stderr.write('Unhandled rejection:\n');
+  stderr.write('\n');
+
+  if (err && err.stack)
+    err = err.stack;
+
+  stderr.write(err + '\n');
+  exit(1);
+});
+
+on('multipleResolves', (type, promise, value) => {
+  stderr.write(`Multiple ${type}s:\n`);
+  stderr.write('\n');
+
+  if (value && value.stack)
+    value = value.stack;
+
+  stderr.write(value + '\n');
+  exit(1);
+});
+
+/*
+ * Main
+ */
+
+(async () => {
+  let options;
+
+  try {
+    options = parseArgs();
+  } catch (e) {
+    stderr.write(e.message + '\n');
+    return 1;
+  }
+
+  if (options.listen) {
+    const Server = require('../lib/server');
+    const server = new Server(options);
+    const addr = await server.listen(options.port, 'localhost');
     const url = `http://localhost:${addr.port}/`;
 
     server.on('error', (err) => {
@@ -746,34 +768,43 @@ process.on('multipleResolves', (type, promise, value) => {
       stderr.write(err + '\n');
     });
 
-    if (headless) {
+    if (options.headless) {
       runHeadless(url);
       return -1;
     }
 
     stdout.write(`Server listening at: ${url}\n`);
 
-    if (open)
-      navigate(url, cmd);
+    if (options.open)
+      navigate(url, options.cmd);
 
     return -1;
   }
 
+  const mocha = new Mocha(options);
+
+  env.BMOCHA_REPORTER = options.reporter;
+
   module.paths.push(cwd, join(cwd, 'node_modules'));
 
-  for (const file of requires)
+  for (const file of options.requires)
     require(file);
 
-  const funcs = files.map(file => wrap(file));
+  const funcs = options.files.map(file => wrap(file));
   const code = await mocha.run(funcs);
 
-  if (doExit)
+  if (options.stream !== stdout)
+    options.stream.end();
+
+  if (options.exit)
     exit(code);
 
   return code;
 })().then((code) => {
-  if (code !== -1)
+  if (code !== -1) {
     process.exitCode = code;
+    on('exit', () => exit(code));
+  }
 }).catch((err) => {
   stderr.write('An error occurred outside of the test suite:\n');
   stderr.write('\n');
