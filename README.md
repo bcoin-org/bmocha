@@ -123,9 +123,9 @@ describe('Suite', (ctx) => {
 });
 ```
 
-For `it` calls, the argument name _must_ end with an `x`. Any single argument
-function ending with an `x` is considered a "context" variable instead of a
-callback. This means that `it('...', x => assert(1));` is also valid.
+For `it` calls, the argument name _must_ end be `ctx`. Any single parameter
+function with a `ctx` argument is considered a "context" variable instead of a
+callback.
 
 However, it is also possible to use callbacks _and_ contexts.
 
@@ -136,10 +136,29 @@ describe('Suite', (ctx) => {
   it('should run test (async)', (done) => {
     done.slow(100);
     assert(1 === 1);
-    done();
+    setTimeout(done, 100);
   });
 });
 ```
+
+The context's properties are injected into the callback whenever a callback
+function is requested.
+
+#### Single-Letter Context Variables
+
+Typing `ctx` repeatedly may seem unwieldly compared to writing normal arrow
+functions. For this reason, there are 3 more "reserved arguments": `$`, `_`,
+and `x`.
+
+``` js
+describe('Suite', () => {
+  it('should skip test', $ => $.skip());
+  it('should skip test', _ => _.skip());
+  it('should skip test', x => x.skip());
+});
+```
+
+All three will work as "context variables".
 
 ## Contribution and License Agreement
 
