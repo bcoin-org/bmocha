@@ -106,6 +106,41 @@ const mocha = new Mocha(stream);
 await mocha.run(...);
 ```
 
+## API Changes
+
+### Arrow Functions
+
+bmocha supports arrow functions in a backwardly compatible way:
+
+``` js
+describe('Suite', (ctx) => {
+  ctx.timeout(1000);
+
+  it('should skip test', (ctx) => {
+    ctx.skip();
+    assert(1 === 0);
+  });
+});
+```
+
+For `it` calls, the argument name _must_ end with an `x`. Any single argument
+function ending with an `x` is considered a "context" variable instead of a
+callback. This means that `it('...', x => assert(1));` is also valid.
+
+However, it is also possible to use callbacks _and_ contexts.
+
+``` js
+describe('Suite', (ctx) => {
+  ctx.timeout(1000);
+
+  it('should run test (async)', (done) => {
+    done.slow(100);
+    assert(1 === 1);
+    done();
+  });
+});
+```
+
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code
