@@ -171,6 +171,62 @@ describe('Fail', function() {
         assert.notBufferEqual(Buffer.from('010203', 'hex'), '010203');
       });
     }
+
+    it('should fail (assert)', async () => {
+      assert(false);
+    });
+
+    it('should fail (fail)', async () => {
+      assert.fail('foobar');
+    });
+
+    it('should fail (equal string)', async () => {
+      assert.equal('01020304', '010203');
+    });
+
+    it('should fail (not equal string)', async () => {
+      assert.notEqual('010203', '010203');
+    });
+
+    it('should fail (equal number)', async () => {
+      assert.equal(1, 2);
+    });
+
+    it('should fail (not equal number)', async () => {
+      assert.notEqual(1, 1);
+    });
+
+    it('should fail (strict equal string)', async () => {
+      assert.strictEqual('01020304', '010203');
+    });
+
+    it('should fail (not strict equal string)', async () => {
+      assert.notStrictEqual('010203', '010203');
+    });
+
+    it('should fail (strict equal number)', async () => {
+      assert.strictEqual(1, 2);
+    });
+
+    it('should fail (not strict equal number)', async () => {
+      assert.notStrictEqual(1, 1);
+    });
+
+    it('should fail (deep equal string)', async () => {
+      assert.deepStrictEqual('01020304', '010203');
+    });
+
+    it('should fail (not deep equal string)', async () => {
+      assert.notDeepStrictEqual('010203', '010203');
+    });
+
+    it('should fail (deep equal number)', async () => {
+      assert.deepStrictEqual(1, 2);
+    });
+
+    it('should fail (not deep equal number)', async () => {
+      assert.notDeepStrictEqual(1, 1);
+    });
   });
 
   describe('Mocha', () => {
