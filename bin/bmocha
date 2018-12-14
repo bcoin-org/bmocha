@@ -14,7 +14,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const {Mocha, inspect, toError} = require('../lib/bmocha');
+const {Mocha, inspect, errorify} = require('../lib/bmocha');
 
 const {
   basename,
@@ -742,7 +742,7 @@ function parseArgs() {
 
 function catcher(reject) {
   const onError = (error) => {
-    const err = toError(error, true);
+    const err = errorify(error);
 
     err.uncaught = true;
     err.exception = true;
@@ -751,7 +751,7 @@ function catcher(reject) {
   };
 
   const onRejection = (reason, promise) => {
-    const err = toError(reason, true);
+    const err = errorify(reason);
 
     err.uncaught = true;
     err.rejected = true;
