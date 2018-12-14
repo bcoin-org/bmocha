@@ -14,7 +14,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const {Mocha} = require('../lib/bmocha');
+const {Mocha, inspect, toError} = require('../lib/bmocha');
 
 const {
   basename,
@@ -34,6 +34,7 @@ const {
 const cwd = process.cwd();
 const {argv, env, stdout, stderr, exit} = process;
 const on = process.on.bind(process);
+const off = process.removeListener.bind(process);
 
 /*
  * Constants
@@ -59,7 +60,10 @@ const HELP = `
     -r, --require <name>    require the given module
     -s, --slow <ms>         "slow" test threshold in milliseconds [75]
     -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
+    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    --interfaces            display available interfaces
     --exit                  force shutdown of the event loop after test run
+    --allow-uncaught        enable uncaught errors to propagate
     --no-timeouts           disables timeouts
     --recursive             include sub directories
     --reporters             display available reporters
@@ -73,6 +77,10 @@ const HELP = `
     -m, --cmd <cmd>         set browser command
     -z, --console           use console in browser
     -h, --help              output usage information
+`;
+
+const INTERFACES = `
+    bdd
 `;
 
 const REPORTERS = `
@@ -399,6 +407,7 @@ function parseArgs() {
     requires: [],
     files: [],
     exit: false,
+    uncaught: false,
     listen: false,
     open: false,
     headless: false,
@@ -547,13 +556,31 @@ function parseArgs() {
         break;
       }
 
+      case '-u':
+      case '--ui': {
+        if (next !== 'bdd')
+          throw new Error(`Invalid interface: ${next}.`);
+        break;
+      }
+
       case '--no-timeouts': {
         options.timeouts = false;
         break;
       }
 
+      case '--interfaces': {
+        stdout.write(INTERFACES + '\n');
+        exit(0);
+        break;
+      }
+
       case '--exit': {
         options.exit = true;
+        break;
+      }
+
+      case '--allow-uncaught': {
+        options.uncaught = true;
         break;
       }
 
@@ -710,33 +737,58 @@ function parseArgs() {
 }
 
 /*
+ * Error Handling
+ */
+
+function catcher(reject) {
+  const onError = (error) => {
+    const err = toError(error, true);
+
+    err.uncaught = true;
+    err.exception = true;
+
+    reject(err);
+  };
+
+  const onRejection = (reason, promise) => {
+    const err = toError(reason, true);
+
+    err.uncaught = true;
+    err.rejected = true;
+
+    reject(err);
+  };
+
+  const onMultiple = (type, promise, value) => {
+    const kind = inspect.type(value);
+    const err = new Error(`Multiple ${type}s detected for ${kind}.`);
+
+    err.operator = 'deepStrictEqual';
+    err.actual = value;
+    err.expected = null;
+    err.uncaught = true;
+    err.multiple = true;
+
+    reject(err);
+  };
+
+  on('uncaughtException', onError);
+  on('unhandledRejection', onRejection);
+  on('multipleResolves', onMultiple);
+
+  return () => {
+    off('uncaughtException', onError);
+    off('unhandledRejection', onRejection);
+    off('multipleResolves', onMultiple);
+  };
+}
+
+/*
  * Bind
  */
 
 env.BMOCHA = '1';
 env.NODE_TEST = '1';
-
-on('unhandledRejection', (err, promise) => {
-  stderr.write('Unhandled rejection:\n');
-  stderr.write('\n');
-
-  if (err && err.stack)
-    err = err.stack;
-
-  stderr.write(err + '\n');
-  exit(1);
-});
-
-on('multipleResolves', (type, promise, value) => {
-  stderr.write(`Multiple ${type}s:\n`);
-  stderr.write('\n');
-
-  if (value && value.stack)
-    value = value.stack;
-
-  stderr.write(value + '\n');
-  exit(1);
-});
 
 /*
  * Main
@@ -784,6 +836,11 @@ on('multipleResolves', (type, promise, value) => {
   const mocha = new Mocha(options);
 
   env.BMOCHA_REPORTER = options.reporter;
+
+  if (!options.uncaught)
+    mocha.catcher = catcher;
+
+  mocha.exit = exit;
 
   module.paths.push(cwd, join(cwd, 'node_modules'));
 

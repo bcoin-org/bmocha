@@ -29,7 +29,10 @@ be sufficient for any typical use-case: https://mochajs.org/
     -r, --require <name>    require the given module
     -s, --slow <ms>         "slow" test threshold in milliseconds [75]
     -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
+    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    --interfaces            display available interfaces
     --exit                  force shutdown of the event loop after test run
+    --allow-uncaught        enable uncaught errors to propagate
     --no-timeouts           disables timeouts
     --recursive             include sub directories
     --reporters             display available reporters

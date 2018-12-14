@@ -208,6 +208,32 @@ describe('Fail', function() {
     it('should fail (overspecified async func)', async (cb) => {
       assert(1);
     });
+
+    it('should fail (uncaught error)', (cb) => {
+      setTimeout(() => {
+        throw new Error('foobar');
+      }, 10);
+      setTimeout(cb, 50);
+    });
+
+    it('should fail (unhandled rejection)', (cb) => {
+      setTimeout(() => {
+        new Promise((resolve, reject) => {
+          reject(new Error('foobar'));
+        });
+      }, 10);
+      setTimeout(cb, 50);
+    });
+
+    it('should fail (multiple resolves)', (cb) => {
+      setTimeout(() => {
+        new Promise((resolve, reject) => {
+          resolve();
+          resolve();
+        });
+      }, 10);
+      setTimeout(cb, 50);
+    });
   });
 
   describe('Misc', () => {
