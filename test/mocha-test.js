@@ -758,6 +758,13 @@ describe('Mocha', function() {
     });
   }
 
+  describe('Mocha Bugs', function() {
+    it('should do callback and then throw', function(cb) {
+      cb();
+      throw new Error('foo');
+    });
+  });
+
   describe('Paranoia', function() {
     it('should have called a total number of tests', () => {
       // Give _explicit_ output to the user to
