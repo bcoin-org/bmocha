@@ -801,6 +801,11 @@ env.NODE_TEST = '1';
   try {
     options = parseArgs();
   } catch (e) {
+    if (e.code === 'ENOENT') {
+      const file = path.relative(cwd, e.path);
+      stderr.write(`File not found: ${file}\n`);
+      return 1;
+    }
     stderr.write(e.message + '\n');
     return 1;
   }
