@@ -18,14 +18,19 @@ const {Mocha, inspect, errorify} = require('../lib/bmocha');
 
 const {
   basename,
+  dirname,
   extname,
   join,
+  relative,
   resolve
 } = path;
 
 const {
   Array,
+  Boolean,
   Error,
+  Math,
+  Object,
   process,
   RegExp,
   Set
@@ -35,6 +40,12 @@ const cwd = process.cwd();
 const {argv, env, stdout, stderr, exit} = process;
 const on = process.on.bind(process);
 const off = process.removeListener.bind(process);
+
+const parts = process.version.split(/[^\d]/);
+const version = (0
+  + (parts[1] & 0xff) * 0x10000
+  + (parts[2] & 0xff) * 0x00100
+  + (parts[3] & 0xff) * 0x00001);
 
 /*
  * Constants
@@ -303,7 +314,7 @@ function findChrome() {
   return findFile(files);
 }
 
-function onExit(handler) {
+function bindExit(handler) {
   assert(typeof handler === 'function');
 
   const onSighup = () => exit(1 | 0x80);
@@ -389,20 +400,64 @@ function runHeadless(url, chrome, extra = []) {
   ps.unref();
 
   ps.on('error', (err) => {
-    stderr.write('Child Process Error:\n');
-
-    if (err && err.stack)
-      err = err.stack;
-
-    stderr.write(err + '\n');
+    if (err.code === 'ENOENT')
+      stderr.write(`Chrome not found: ${err.path}.\n`);
+    else
+      stderr.write(err.stack + '\n');
     exit(1);
   });
 
-  onExit(() => {
+  const onExit = (code, signal) => {
+    stderr.write('Chrome exited unexpectedly.\n');
+    exit(Math.max(1, code >>> 0));
+  };
+
+  ps.on('exit', onExit);
+
+  bindExit(() => {
+    ps.removeListener('exit', onExit);
     ps.kill('SIGTERM');
   });
 
   return [[file, ...args], ps];
+}
+
+function getArgs(argv) {
+  assert(Array.isArray(argv));
+
+  const args = [];
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+
+    assert(typeof arg === 'string');
+
+    if (arg.startsWith('--')) {
+      // e.g. --opt
+      const index = arg.indexOf('=');
+      if (index !== -1) {
+        // e.g. --opt=val
+        args.push(arg.substring(0, index));
+        args.push(arg.substring(index + 1));
+      } else {
+        args.push(arg);
+      }
+    } else if (arg.startsWith('-')) {
+      if (arg.length > 2) {
+        // e.g. -abc
+        for (let j = 1; j < arg.length; j++)
+          args.push(`-${arg.charAt(j)}`);
+      } else {
+        // e.g. -a
+        args.push(arg);
+      }
+    } else {
+      // e.g. foo
+      args.push(arg);
+    }
+  }
+
+  return args;
 }
 
 function parseArgs() {
@@ -443,13 +498,15 @@ function parseArgs() {
   let recurse = false;
   let sort = false;
 
-  for (let i = 2; i < argv.length; i++) {
-    const arg = argv[i];
+  const args = getArgs(argv);
+
+  for (let i = 2; i < args.length; i++) {
+    const arg = args[i];
 
     let next = '';
 
-    if (i + 1 < argv.length)
-      next = argv[i + 1];
+    if (i + 1 < args.length)
+      next = args[i + 1];
 
     switch (arg) {
       case '-V':
@@ -579,6 +636,7 @@ function parseArgs() {
       case '--ui': {
         if (next !== 'bdd')
           throw new Error(`Invalid interface: ${next}.`);
+        i += 1;
         break;
       }
 
@@ -752,13 +810,20 @@ function parseArgs() {
   options.files = files;
 
   if (typeof reporterOptions.output === 'string') {
-    const output = reporterOptions.output.replace(/^~/, os.homedir());
-    const stream = fs.createWriteStream(output);
+    const {output} = reporterOptions;
+    const path = output.replace(/^~\//, `${os.homedir()}/`);
+    const file = resolve(cwd, path);
+    const dir = dirname(file);
+
+    if (version >= 0x0a0c00)  {
+      // Recursive mkdir was added in node v10.12.0.
+      fs.mkdirSync(dir, { mode: 0o755, recursive: true });
+    }
+
+    const stream = fs.createWriteStream(file);
 
     stream.on('error', (err) => {
-      if (err && err.stack)
-        err = err.stack;
-      stderr.write(err + '\n');
+      stderr.write(err.stack + '\n');
       exit(1);
     });
 
@@ -818,13 +883,6 @@ function catcher(reject) {
 }
 
 /*
- * Bind
- */
-
-env.BMOCHA = '1';
-env.NODE_TEST = '1';
-
-/*
  * Main
  */
 
@@ -835,7 +893,7 @@ env.NODE_TEST = '1';
     options = parseArgs();
   } catch (e) {
     if (e.code === 'ENOENT') {
-      const file = path.relative(cwd, e.path);
+      const file = relative(cwd, e.path);
       stderr.write(`File not found: ${file}\n`);
       return 1;
     }
@@ -850,13 +908,9 @@ env.NODE_TEST = '1';
     const url = `http://localhost:${addr.port}/`;
 
     server.on('error', (err) => {
-      stderr.write('Server Error:\n');
       stderr.write('\n');
-
-      if (err && err.stack)
-        err = err.stack;
-
-      stderr.write(err + '\n');
+      stderr.write('Server Error:\n');
+      stderr.write(err.stack + '\n');
     });
 
     if (options.headless) {
@@ -872,9 +926,11 @@ env.NODE_TEST = '1';
     return -1;
   }
 
-  const mocha = new Mocha(options);
-
+  env.BMOCHA = '1';
+  env.NODE_TEST = '1';
   env.BMOCHA_REPORTER = options.reporter;
+
+  const mocha = new Mocha(options);
 
   if (!options.uncaught)
     mocha.catcher = catcher;
@@ -902,12 +958,6 @@ env.NODE_TEST = '1';
     on('exit', () => exit(code));
   }
 }).catch((err) => {
-  stderr.write('An error occurred outside of the test suite:\n');
-  stderr.write('\n');
-
-  if (err && err.stack)
-    err = err.stack;
-
-  stderr.write(err + '\n');
+  stderr.write(err.stack + '\n');
   exit(1);
 });
