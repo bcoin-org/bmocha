@@ -389,29 +389,60 @@ function runHeadless(url, chrome, extra = []) {
     url
   ];
 
-  const ps = cp.spawn(file, args, {
-    cwd,
-    env,
-    detached: false,
-    stdio: 'ignore',
-    shell: false
-  });
+  let output = '';
 
-  ps.unref();
+  const onData = (data) => {
+    if (output.length > (1 << 20))
+      output = '';
+    output += data;
+  };
 
-  ps.on('error', (err) => {
+  const onError = (err) => {
     if (err.code === 'ENOENT')
       stderr.write(`Chrome not found: ${err.path}.\n`);
     else
       stderr.write(err.stack + '\n');
     exit(1);
-  });
-
-  const onExit = (code, signal) => {
-    stderr.write('Chrome exited unexpectedly.\n');
-    exit(Math.max(1, code >>> 0));
   };
 
+  const onExit = (code, signal) => {
+    code >>>= 0;
+
+    stderr.write('Chrome exited unexpectedly ');
+    stderr.write(`(code=${code}, signal=${signal}).\n`);
+
+    if (output.length > 0) {
+      stderr.write('\n');
+      stderr.write(output);
+      stderr.write('\n');
+    }
+
+    if (code === 0)
+      code = 1;
+
+    exit(code);
+  };
+
+  const ps = cp.spawn(file, args, {
+    cwd,
+    env,
+    detached: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: false
+  });
+
+  ps.stdout.unref();
+  ps.stdout.setEncoding('utf8');
+  ps.stdout.on('error', () => {});
+  ps.stdout.on('data', onData);
+
+  ps.stderr.unref();
+  ps.stderr.setEncoding('utf8');
+  ps.stderr.on('error', () => {});
+  ps.stderr.on('data', onData);
+
+  ps.unref();
+  ps.on('error', onError);
   ps.on('exit', onExit);
 
   bindExit(() => {
