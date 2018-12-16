@@ -3,6 +3,6 @@
 
 'use strict';
 
-describe('Suite', () => {
+describe('Throw', () => {
   throw new Error('Failure.');
 });
