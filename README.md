@@ -260,8 +260,8 @@ $ mocha test.js
   1 passing (6ms)
 ```
 
-Passes in mocha and _swallows_ the error. We don't want to interfere with
-existing mocha tests, but we can output a warning to the programmer:
+The above passes in mocha and _swallows_ the error. We don't want to interfere
+with existing mocha tests, but we can output a warning to the programmer:
 
 ```
 $ bmocha test.js
@@ -421,11 +421,11 @@ $ mocha test.js
     ✓ should not fail (setTimeout)
 ```
 
-Mocha tends to produce garbled output in these situations.
+The garbled output shown above is very confusing and not very user friendly.
 
 In bmocha, the results are as such:
 
-``` js
+```
 $ bmocha test.js
 
   Suite
