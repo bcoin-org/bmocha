@@ -1,17 +1,15 @@
 # bmocha
 
-Minimal implementation of mocha (requires no external dependencies).
-
-## Docs
-
-Because bmocha is more or less a full clone of mocha, the MochaJS docs should
-be sufficient for any typical use-case: https://mochajs.org/
+Alternative implementation of [Mocha][mocha] (requires no external dependencies
+for security purposes).
 
 ## Usage
 
-### CLI
+Bmocha's CLI mimics Mocha's CLI for most features:
 
 ```
+$ bmocha --help
+
   Usage: bmocha [options] [files]
 
   Options:
@@ -43,74 +41,149 @@ be sufficient for any typical use-case: https://mochajs.org/
     -p, --port <port>       port to listen on [8080]
     -o, --open              open browser after serving
     -H, --headless          run tests in headless chrome
+    --chrome <path>         chrome binary to use for headless mode
     -m, --cmd <cmd>         set browser command
     -z, --console           use console in browser
     -h, --help              output usage information
 ```
 
-#### Examples
+### Example
 
 ``` bash
-$ bmocha --reporter spec test/
-$ bmocha --help
+$ bmocha --reporter spec test.js
 ```
+
+## Docs
+
+Because bmocha is more or less a full clone of mocha, the MochaJS docs should
+be sufficient for any typical use-case. See [mochajs.org][mocha].
+
+## Features
+
+### Easily Auditable Code (the "why?")
+
+There have been a number of NPM package attacks in the past. The most recent
+being an attack on the popular `event-stream` library. There are many projects
+with _financial_ components to them, cryptocurrency projects in particular.
+
+Mocha pulls in a number of dependencies (23 with dedupes, and an even greater
+amount of dev dependencies):
 
 ``` bash
-# Bundle tests with browserify and
-# start server on designated port.
-$ bmocha --listen --port 8080
-$ bmocha -l -p 8080
-$ bmocha -p 8080
+$ npm ls
+mocha@5.2.0
+├── browser-stdout@1.3.1
+├── commander@2.15.1
+├─┬ debug@3.1.0
+│ └── ms@2.0.0
+├── diff@3.5.0
+├── escape-string-regexp@1.0.5
+├─┬ glob@7.1.2
+│ ├── fs.realpath@1.0.0
+│ ├─┬ inflight@1.0.6
+│ │ ├── once@1.4.0
+│ │ └── wrappy@1.0.2
+│ ├── inherits@2.0.3
+│ ├── minimatch@3.0.4
+│ ├─┬ once@1.4.0
+│ │ └── wrappy@1.0.2
+│ └── path-is-absolute@1.0.1
+├── growl@1.10.5
+├── he@1.1.1
+├─┬ minimatch@3.0.4
+│ └─┬ brace-expansion@1.1.11
+│   ├── balanced-match@1.0.0
+│   └── concat-map@0.0.1
+├─┬ mkdirp@0.5.1
+│ └── minimist@0.0.8
+└─┬ supports-color@5.4.0
+  └── has-flag@3.0.0
 ```
+
+As maintainers of several cryptocurrency projects, we find this attack surface
+to be far too large for comfort. Although we of course trust the mocha
+developers, only one of its dependencies need be compromised in order to
+potentially steal bitcoin or API keys.
+
+As a result, bmocha pulls in _zero_ dependencies: what you see is what you get.
+The code is a couple thousand lines, residing in `lib/` and `bin/`.
+
+### Headless Chrome & Browser Support
+
+If browserify is installed as a global or peer dependency, running tests in
+headless chrome is as easy as:
 
 ``` bash
-# Bundle tests with browserify,
-# start server, and open browser.
-$ bmocha --open
-$ bmocha -o
-$ bmocha --cmd 'chromium --app=%s'
-$ bmocha -m 'chromium --app=%s'
+$ bmocha -H test.js
 ```
 
-## API
+Chromium or chrome must be installed in one of the usual locations depending on
+your OS. If both are installed, bmocha prefers chromium over chrome.
 
-### JS
+The tests will run in a browserify environment with some extra features:
 
-``` js
-const assert = require('assert');
-const {Mocha} = require('bmocha');
-const mocha = new Mocha(process.stdout);
+- `console.{log,error,info,warn,dir}` and `process.{stdout,stderr}` will work
+  as expected.
+- `process.{exit,abort}` will work as expected.
+- The `fs` module will work in "read-only" mode. All of the read calls,
+  including `access`, `exists`, `stat`, `readdir`, and `readFile` will all work
+  properly (sync and async). As a security measure, they will only be able to
+  access your current working directory and nothing else (note that this is not
+  a jail or chroot: if you have a symlink out of your module's directory, the
+  tests will be able to access this).
 
-const code = await mocha.run(() => {
-  describe('Foobar', function() {
-    this.timeout(5000);
+If your chrome binary is somewhere non-standard, you are able to pass the
+`--chrome` flag.
 
-    it('should check 1 == 1', function() {
-      this.retries(10);
-      assert.equal(1, 1);
-    });
-  });
-});
-
-if (code !== 0)
-  process.exit(code);
+``` bash
+$ bmocha --chrome="$(which google-chrome-unstable)" test.js
 ```
 
-### Browser
+To run the tests in your default non-headless browser:
 
-``` js
-const {Mocha, DOMStream} = require('bmocha');
-const stream = new DOMStream(document.body);
-const mocha = new Mocha(stream);
-
-await mocha.run(...);
+``` bash
+$ bmocha -o test.js
 ```
 
-## API Changes
+Will open a browser window and display output in the DOM.
+
+To run with the output written to the console instead:
+
+``` bash
+$ bmocha -oz test.js
+```
+
+To pass a custom browser to open, use `-m` instead of `-o`:
+
+``` bash
+$ bmocha -m 'chromium %s' test.js
+```
+
+Where `%s` is where you want the server's URL to be placed.
+
+For example, to run chromium in app mode:
+
+``` bash
+$ bmocha -m 'chromium --app=%s' test.js
+```
+
+By default, bmocha will start an HTTP server listening on a random port. To
+specify the port:
+
+``` bash
+$ bmocha -p 8080 -m 'chromium --app=%' test.js
+```
+
+And finally, to simply start an http server without any browser action, the
+`-l` flag is available:
+
+``` bash
+$ bmocha -lp 8080 test.js
+```
 
 ### Arrow Functions
 
-bmocha supports arrow functions in a backwardly compatible way:
+Bmocha supports arrow functions in a backwardly compatible way:
 
 ``` js
 describe('Suite', (ctx) => {
@@ -123,7 +196,7 @@ describe('Suite', (ctx) => {
 });
 ```
 
-For `it` calls, the argument name _must_ end be `ctx`. Any single parameter
+For `it` calls, the argument name _must_ be `ctx`. Any single parameter
 function with a `ctx` argument is considered a "context" variable instead of a
 callback.
 
@@ -131,12 +204,12 @@ However, it is also possible to use callbacks _and_ contexts.
 
 ``` js
 describe('Suite', (ctx) => {
-  ctx.timeout(1000);
+  ctx.timeout(200);
 
   it('should run test (async)', (done) => {
-    done.slow(100);
-    assert(1 === 1);
-    setTimeout(done, 100);
+    done.slow(10);
+    assert(typeof done === 'function');
+    setTimeout(done, 20);
   });
 });
 ```
@@ -160,6 +233,326 @@ describe('Suite', () => {
 
 All three will work as "context variables".
 
+### Fixes for Mocha legacy behavior
+
+Since we're building from scratch with zero dependents, we have an opportunity
+to fix some of the bugs in Mocha.
+
+For example:
+
+``` js
+describe('Suite', () => {
+  it('should fail', (cb) => {
+    cb();
+    throw new Error('foobar');
+  });
+});
+```
+
+``` bash
+$ mocha test.js
+
+
+  Suite
+    ✓ should fail
+
+
+  1 passing (6ms)
+```
+
+Passes in mocha and _swallows_ the error. We don't want to interfere with
+existing mocha tests, but we can output a warning to the programmer:
+
+``` bash
+$ bmocha test.js
+
+  Suite
+    ✓ should fail
+      ! swallowed error as per mocha behavior:
+        Error: foobar
+
+  1 passing (4ms)
+```
+
+Likewise, the following tests also pass in mocha without issue:
+
+``` js
+describe('Suite', () => {
+  it('should fail (unhandled rejection)', () => {
+    new Promise((resolve, reject) => {
+      reject(new Error('foobar'));
+    });
+  });
+
+  it('should fail (resolve & resolve)', () => {
+    return new Promise((resolve, reject) => {
+      resolve(1);
+      resolve(2);
+    });
+  });
+
+  it('should fail (resolve & reject)', () => {
+    return new Promise((resolve, reject) => {
+      resolve(3);
+      reject(new Error('foobar'));
+    });
+  });
+
+  it('should fail (resolve & throw)', () => {
+    return new Promise((resolve, reject) => {
+      resolve(4);
+      throw new Error('foobar');
+    });
+  });
+});
+```
+
+``` bash
+$ mocha test.js
+
+
+  Suite
+    ✓ should fail (unhandled rejection)
+    ✓ should fail (resolve & resolve)
+    ✓ should fail (resolve & reject)
+    ✓ should fail (resolve & throw)
+
+
+  4 passing (7ms)
+```
+
+Bmocha will report and catch unhandled rejections, multiple resolutions, along
+with other strange situations:
+
+``` bash
+$ bmocha test.js
+
+  Suite
+    1) should fail (unhandled rejection)
+    2) should fail (resolve & resolve)
+    3) should fail (resolve & reject)
+    4) should fail (resolve & throw)
+
+  0 passing (5ms)
+  4 failing
+
+  1) Suite
+       should fail (unhandled rejection):
+
+      Unhandled Error: foobar
+
+  2) Suite
+       should fail (resolve & resolve):
+
+      Uncaught Error: Multiple resolves detected for number.
+
+      2
+
+  3) Suite
+       should fail (resolve & reject):
+
+      Uncaught Error: Multiple rejects detected for error.
+
+      [Error: foobar]
+
+  4) Suite
+       should fail (resolve & throw):
+
+      Uncaught Error: Multiple rejects detected for error.
+
+      [Error: foobar]
+```
+
+Mocha tends to die in very strange ways on uncaught errors. Take for instance:
+
+``` js
+describe('Suite', () => {
+  it('should fail (setImmediate)', () => {
+    setImmediate(() => {
+      throw new Error('foobar 1');
+    });
+  });
+
+  it('should not fail (setTimeout)', () => {
+    setTimeout(() => {
+      throw new Error('foobar 2');
+    }, 1);
+  });
+});
+```
+
+```
+$ mocha test.js
+
+
+  Suite
+    ✓ should fail (setImmediate)
+    1) should fail (setImmediate)
+
+  1 passing (6ms)
+  1 failing
+
+  1) Suite
+       should fail (setImmediate):
+     Uncaught Error: foobar 1
+      at Immediate.setImmediate (test.js:4:13)
+
+
+
+    ✓ should not fail (setTimeout)
+```
+
+Mocha tends to produce garbled output in these situations.
+
+In bmocha, the results are as such:
+
+``` js
+$ bmocha test.js
+
+  Suite
+    1) should fail (setImmediate)
+    ✓ should not fail (setTimeout)
+
+  1 passing (4ms)
+  1 failing
+
+  1) Suite
+       should fail (setImmediate):
+
+      Uncaught Error: foobar 1
+
+      at Immediate.setImmediate (/home/bmocha/test.js:4:13)
+      at processImmediate (timers.js:632:19)
+
+
+    An error occurred outside of the test suite:
+
+      Uncaught Error: foobar 2
+
+      at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
+      at listOnTimeout (timers.js:324:15)
+      at processTimers (timers.js:268:5)
+```
+
+A note on uncaught errors, unhandled rejections, and multiple resolutions:
+Mocha does not even handle the latter, but it tends to die strangely on the
+former two. In fact, it dies almost instantly. Bmocha will attempt to "attach"
+uncaught errors to the currently running test and reject it. If there is no
+currently running test, bmocha will buffer the error until the end, at which
+point it will list all of the uncaught errors. If bmocha is no longer running
+at all, the error will be output and the process will be exited.
+
+This can lead to differing output on each run if your process has uncaught
+errors. Running it again, bmocha was able to attach the error to the currently
+running test:
+
+``` bash
+$ bmocha test.js
+
+  Suite
+    1) should fail (setImmediate)
+    2) should not fail (setTimeout)
+
+  0 passing (4ms)
+  2 failing
+
+  1) Suite
+       should fail (setImmediate):
+
+      Uncaught Error: foobar 1
+
+      at Immediate.setImmediate (/home/bmocha/test.js:4:13)
+      at processImmediate (timers.js:632:19)
+
+  2) Suite
+       should not fail (setTimeout):
+
+      Uncaught Error: foobar 2
+
+      at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
+      at listOnTimeout (timers.js:324:15)
+      at processTimers (timers.js:268:5)
+```
+
+Mocha also only _warns_ when _explicitly_ passed a non-existent test. This is a
+shortcoming in CI situations which may only look at the exit code.
+
+``` bash
+$ mocha test.js non-existent.js || echo 1
+Warning: Could not find any test files matching pattern: non-existent.js
+
+
+  Suite
+    ✓ should pass
+
+
+  1 passing (3ms)
+```
+
+Bmocha will fail outright:
+
+``` bash
+$ bmocha test.js non-existent.js || echo 1
+File not found: non-existent.js.
+1
+```
+
+## Raw API
+
+To explicitly run bmocha as a module:
+
+### JS
+
+Mocha accepts a `Stream` object for output.
+
+``` js
+const assert = require('assert');
+const {Mocha} = require('bmocha');
+
+const mocha = new Mocha({
+  stream: process.stdout,
+  reporter: 'nyan',
+  fgrep: 'Foobar'
+});
+
+const code = await mocha.run(() => {
+  describe('Foobar', function() {
+    this.timeout(5000);
+
+    it('should check 1 == 1', function() {
+      this.retries(10);
+      assert.equal(1, 1);
+    });
+  });
+});
+
+if (code !== 0)
+  process.exit(code);
+```
+
+### Browser
+
+Running in the browser is similar. To output to the DOM, a `DOMStream` object
+is available:
+
+``` js
+const {Mocha, DOMStream} = require('bmocha');
+const stream = new DOMStream(document.body);
+const mocha = new Mocha(stream);
+
+await mocha.run(...);
+```
+
+Likewise, a `ConsoleStream` object is available to output to the console:
+
+``` js
+const {Mocha, DOMStream} = require('bmocha');
+const stream = new ConsoleStream(console);
+const mocha = new Mocha(stream);
+
+await mocha.run(...);
+```
+
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code
@@ -171,3 +564,5 @@ all code is your original work. `</legalese>`
 - Copyright (c) 2018, Christopher Jeffrey (MIT License).
 
 See LICENSE for more info.
+
+[mocha]: https://mochajs.org/
