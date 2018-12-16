@@ -425,13 +425,13 @@ $ bmocha test.js
       at processImmediate (timers.js:632:19)
 
 
-    An error occurred outside of the test suite:
+  An error occurred outside of the test suite:
 
-      Uncaught Error: foobar 2
+  Uncaught Error: foobar 2
 
-      at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
-      at listOnTimeout (timers.js:324:15)
-      at processTimers (timers.js:268:5)
+    at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
+    at listOnTimeout (timers.js:324:15)
+    at processTimers (timers.js:268:5)
 ```
 
 A note on uncaught errors, unhandled rejections, and multiple resolutions:
