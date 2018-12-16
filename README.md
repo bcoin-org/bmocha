@@ -333,13 +333,20 @@ $ bmocha test.js
     3) should fail (resolve & reject)
     4) should fail (resolve & throw)
 
-  0 passing (5ms)
+  0 passing (4ms)
   4 failing
 
   1) Suite
        should fail (unhandled rejection):
 
       Unhandled Error: foobar
+
+      reject(new Error('foobar'));
+             ^
+
+      at Promise (/home/bmocha/test.js:4:14)
+      at new Promise (<anonymous>)
+      at Context.it (/home/bmocha/test.js:3:5)
 
   2) Suite
        should fail (resolve & resolve):
@@ -353,14 +360,26 @@ $ bmocha test.js
 
       Uncaught Error: Multiple rejects detected for error.
 
-      [Error: foobar]
+      Error: foobar
+          at Promise (/home/bmocha/test.js:18:14)
+          at new Promise (<anonymous>)
+          at Context.it (/home/bmocha/test.js:16:12)
+
+      reject(new Error('foobar'));
+             ^
 
   4) Suite
        should fail (resolve & throw):
 
       Uncaught Error: Multiple rejects detected for error.
 
-      [Error: foobar]
+      Error: foobar
+          at Promise (/home/bmocha/test.js:25:13)
+          at new Promise (<anonymous>)
+          at Context.it (/home/bmocha/test.js:23:12)
+
+      throw new Error('foobar');
+            ^
 ```
 
 Mocha tends to die in very strange ways on uncaught errors. Take for instance:
@@ -389,7 +408,7 @@ $ mocha test.js
     ✓ should fail (setImmediate)
     1) should fail (setImmediate)
 
-  1 passing (6ms)
+  1 passing (5ms)
   1 failing
 
   1) Suite
@@ -413,13 +432,16 @@ $ bmocha test.js
     1) should fail (setImmediate)
     ✓ should not fail (setTimeout)
 
-  1 passing (4ms)
+  1 passing (5ms)
   1 failing
 
   1) Suite
        should fail (setImmediate):
 
       Uncaught Error: foobar 1
+
+      throw new Error('foobar 1');
+            ^
 
       at Immediate.setImmediate (/home/bmocha/test.js:4:13)
       at processImmediate (timers.js:632:19)
@@ -428,6 +450,9 @@ $ bmocha test.js
   An error occurred outside of the test suite:
 
     Uncaught Error: foobar 2
+
+    throw new Error('foobar 2');
+          ^
 
     at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
     at listOnTimeout (timers.js:324:15)
@@ -461,6 +486,9 @@ $ bmocha test.js
 
       Uncaught Error: foobar 1
 
+      throw new Error('foobar 1');
+            ^
+
       at Immediate.setImmediate (/home/bmocha/test.js:4:13)
       at processImmediate (timers.js:632:19)
 
@@ -468,6 +496,9 @@ $ bmocha test.js
        should not fail (setTimeout):
 
       Uncaught Error: foobar 2
+
+      throw new Error('foobar 2');
+            ^
 
       at Timeout.setTimeout [as _onTimeout] (/home/bmocha/test.js:10:13)
       at listOnTimeout (timers.js:324:15)
