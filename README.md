@@ -69,7 +69,7 @@ with _financial_ components to them, cryptocurrency projects in particular.
 Mocha pulls in a number of dependencies (23 with dedupes, and an even greater
 amount of dev dependencies):
 
-``` bash
+```
 $ npm ls
 mocha@5.2.0
 ├── browser-stdout@1.3.1
@@ -249,7 +249,7 @@ describe('Suite', () => {
 });
 ```
 
-``` bash
+```
 $ mocha test.js
 
 
@@ -263,7 +263,7 @@ $ mocha test.js
 Passes in mocha and _swallows_ the error. We don't want to interfere with
 existing mocha tests, but we can output a warning to the programmer:
 
-``` bash
+```
 $ bmocha test.js
 
   Suite
@@ -307,7 +307,7 @@ describe('Suite', () => {
 });
 ```
 
-``` bash
+```
 $ mocha test.js
 
 
@@ -324,7 +324,7 @@ $ mocha test.js
 Bmocha will report and catch unhandled rejections, multiple resolutions, along
 with other strange situations:
 
-``` bash
+```
 $ bmocha test.js
 
   Suite
@@ -446,7 +446,7 @@ This can lead to differing output on each run if your process has uncaught
 errors. Running it again, bmocha was able to attach the error to the currently
 running test:
 
-``` bash
+```
 $ bmocha test.js
 
   Suite
@@ -477,7 +477,7 @@ $ bmocha test.js
 Mocha also only _warns_ when _explicitly_ passed a non-existent test. This is a
 shortcoming in CI situations which may only look at the exit code.
 
-``` bash
+```
 $ mocha test.js non-existent.js || echo 1
 Warning: Could not find any test files matching pattern: non-existent.js
 
@@ -491,7 +491,7 @@ Warning: Could not find any test files matching pattern: non-existent.js
 
 Bmocha will fail outright:
 
-``` bash
+```
 $ bmocha test.js non-existent.js || echo 1
 File not found: non-existent.js.
 1
@@ -546,7 +546,7 @@ await mocha.run(...);
 Likewise, a `ConsoleStream` object is available to output to the console:
 
 ``` js
-const {Mocha, DOMStream} = require('bmocha');
+const {Mocha, ConsoleStream} = require('bmocha');
 const stream = new ConsoleStream(console);
 const mocha = new Mocha(stream);
 
