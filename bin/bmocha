@@ -962,9 +962,6 @@ function catcher(reject) {
     return -1;
   }
 
-  if (stdout.isTTY)
-    env.NODE_DISABLE_COLORS = '1';
-
   env.BMOCHA = '1';
   env.NODE_TEST = '1';
   env.BMOCHA_REPORTER = options.reporter;
