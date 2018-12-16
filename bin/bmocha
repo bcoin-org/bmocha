@@ -883,20 +883,19 @@ function catcher(reject) {
     const err = errorify(reason);
 
     err.uncaught = true;
-    err.rejected = true;
+    err.rejection = true;
 
     reject(err);
   };
 
   const onMultiple = (type, promise, value) => {
     const kind = inspect.type(value);
-    const data = inspect.single(value);
-    const err = new Error(`Multiple ${type}s detected for ${kind}: ${data}.`);
+    const err = new Error(`Multiple ${type}s detected for ${kind}.`);
 
-    err.display = true;
-    err.value = value;
     err.uncaught = true;
     err.multiple = true;
+    err.display = true;
+    err.value = value;
 
     reject(err);
   };
@@ -924,7 +923,7 @@ function catcher(reject) {
   } catch (e) {
     if (e.code === 'ENOENT') {
       const file = relative(cwd, e.path);
-      stderr.write(`File not found: ${file}\n`);
+      stderr.write(`File not found: ${file}.\n`);
       return 1;
     }
     stderr.write(e.message + '\n');
