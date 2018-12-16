@@ -893,9 +893,8 @@ function catcher(reject) {
     const data = inspect.single(value);
     const err = new Error(`Multiple ${type}s detected for ${kind}: ${data}.`);
 
-    err.operator = 'deepStrictEqual';
-    err.actual = value;
-    err.expected = null;
+    err.display = true;
+    err.value = value;
     err.uncaught = true;
     err.multiple = true;
 
