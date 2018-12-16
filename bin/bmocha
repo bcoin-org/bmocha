@@ -984,9 +984,6 @@ function catcher(reject) {
   const funcs = options.files.map(file => wrap(file));
   const code = await mocha.run(funcs);
 
-  if (options.stream !== stdout)
-    options.stream.end();
-
   if (options.exit)
     exit(code);
 
