@@ -51,7 +51,7 @@ const version = (0
  * Constants
  */
 
-const VERSION = '0.1.7';
+const VERSION = '0.1.8';
 
 const HELP = `
   Usage: bmocha [options] [files]
