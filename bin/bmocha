@@ -838,6 +838,9 @@ function parseArgs() {
   if (sort)
     files.sort();
 
+  if (files.length === 0)
+    throw new Error('No test files found.');
+
   options.files = files;
 
   if (typeof reporterOptions.output === 'string') {
