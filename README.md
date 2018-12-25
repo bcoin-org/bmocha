@@ -171,7 +171,7 @@ By default, bmocha will start an HTTP server listening on a random port. To
 specify the port:
 
 ``` bash
-$ bmocha -p 8080 -m 'chromium --app=%' test.js
+$ bmocha -p 8080 -m 'chromium --app=%s' test.js
 ```
 
 And finally, to simply start an http server without any browser action, the
@@ -180,6 +180,25 @@ And finally, to simply start an http server without any browser action, the
 ``` bash
 $ bmocha -lp 8080 test.js
 ```
+
+#### Support for Workers
+
+In the browser, your code may be using workers. To notify bmocha of this, a
+global `register` call is exposed during test execution.
+
+``` js
+function createWorker() {
+  if (process.env.BMOCHA) {
+    // Usage: register([desired-url-path], [filesystem-path]);
+    register('/worker.js', [__dirname, 'worker.js']);
+  }
+
+  return new Worker('/worker.js');
+}
+```
+
+When `createWorker` is called, the bmocha server is notified that it should
+compile and serve `${__dirname}/worker.js` as `/worker.js`.
 
 ### Arrow Functions
 
