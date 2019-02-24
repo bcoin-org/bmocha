@@ -83,6 +83,10 @@ const HELP = `
     --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
+    --ssl                   use ssl to listen
+    --ssl-ignore            ignore certificate errors (headless) [false]
+    --cert                  path to ssl cert file
+    --key                   path to ssl key file
     -o, --open              open browser after serving
     -H, --headless          run tests in headless chrome
     --chrome <path>         chrome binary to use for headless mode
@@ -515,6 +519,10 @@ function parseArgs() {
     listen: false,
     open: false,
     headless: false,
+    ssl: false,
+    sslIgnore: false,
+    cert: null,
+    key: null,
     chrome: null,
     cmd: '',
     console: false,
@@ -787,6 +795,45 @@ function parseArgs() {
         break;
       }
 
+      case '--ssl': {
+        options.listen = true;
+        options.ssl = true;
+        break;
+      }
+
+      case '--ssl-ignore': {
+        options.headless = true;
+        options.open = true;
+        options.listen = true;
+        options.ssl = true;
+        options.sslIgnore = true;
+        break;
+      }
+
+      case '--cert': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.ssl = true;
+        options.cert = fs.readFileSync(next);
+
+        i += 1;
+        break;
+      }
+
+      case '--key': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.ssl = true;
+        options.key = fs.readFileSync(next);
+
+        i += 1;
+        break;
+      }
+
       case '-m':
       case '--cmd': {
         if (!next)
@@ -821,6 +868,14 @@ function parseArgs() {
   if (options.listen) {
     if (options.port === -1)
       options.port = options.open ? 0 : 8080;
+  }
+
+  if (options.ssl) {
+    if (!options.key)
+      throw new Error('SSL specified with no provided key.');
+
+    if (!options.cert)
+      throw new Error('SSL specified with no provided cert.');
   }
 
   if (files.length === 0) {
@@ -943,7 +998,9 @@ function catcher(reject) {
     const Server = require('../lib/server');
     const server = new Server(options);
     const addr = await server.listen(options.port, 'localhost');
-    const url = `http://localhost:${addr.port}/`;
+    const protocol = options.ssl ? 'https' : 'http';
+    const url = `${protocol}://localhost:${addr.port}/`;
+    const chromeOptions = [];
 
     server.on('error', (err) => {
       stderr.write('\n');
@@ -951,8 +1008,11 @@ function catcher(reject) {
       stderr.write(err.stack + '\n');
     });
 
+    if (options.ssl && options.sslIgnore)
+      chromeOptions.push('--ignore-certificate-errors');
+
     if (options.headless) {
-      runHeadless(url, options.chrome);
+      runHeadless(url, options.chrome, chromeOptions);
       return -1;
     }
 
