@@ -14,6 +14,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const glob = require('../vendor/glob');
 const {Mocha, inspect, errorify} = require('../lib/bmocha.js');
 
 const {
@@ -32,8 +33,7 @@ const {
   Math,
   Object,
   process,
-  RegExp,
-  Set
+  RegExp
 } = global;
 
 const cwd = process.cwd();
@@ -74,6 +74,7 @@ const HELP = `
     -u, --ui <name>         specify user-interface (bdd) (default: bdd)
     --check-leaks           check for global variable leaks
     --globals               allow the given comma-delimited global [names]
+    --extension             file extension(s) to load and/or watch
     --interfaces            display available interfaces
     --exit                  force shutdown of the event loop after test run
     --allow-uncaught        enable uncaught errors to propagate
@@ -148,34 +149,106 @@ function exists(file) {
   }
 }
 
-function flatten(files, recurse = false) {
+function globify(files) {
   assert(Array.isArray(files));
+
+  const out = [];
+
+  const options = {
+    cwd,
+    nosort: true,
+    silent: true
+  };
+
+  for (const file of files) {
+    if (glob.hasMagic(file, options)) {
+      const result = glob.sync(file, options);
+
+      if (result.length === 0)
+        throw new Error(`Could not resolve pattern: "${file}".`);
+
+      out.push(...result);
+
+      continue;
+    }
+
+    if (!exists(file)) {
+      // To mimic mocha more closely, we could do:
+      //
+      //   if (exists(file + '.js')) {
+      //     out.push(file + '.js');
+      //     continue;
+      //   }
+      //
+      // But this seems messy and non-explicit.
+      // It also doesn't account for custom extensions.
+      throw new Error(`Could not resolve path: "${file}".`);
+    }
+
+    out.push(file);
+  }
+
+  return out;
+}
+
+function flatten(files, extensions, recurse = false) {
+  assert(Array.isArray(files));
+  assert(Array.isArray(extensions));
   assert(typeof recurse === 'boolean');
 
   for (const file of files)
     assert(typeof file === 'string');
 
-  const limit = recurse ? (-1 >>> 0) : 1;
+  for (const ext of extensions) {
+    assert(typeof ext === 'string');
+    assert(ext.length > 0 && ext[0] === '.');
+  }
 
-  return walk(files, limit, []);
+  return walk(files, extensions, recurse, 0, []);
 }
 
-function walk(files, limit, out) {
+function walk(files, extensions, recurse, depth, out) {
   for (const file of files) {
     const stat = fs.statSync(file);
 
     if (stat.isDirectory()) {
-      if (limit > 0)
-        walk(readdir(file), limit - 1, out);
+      // Without the recurse option,
+      // mocha delves one level deep.
+      if (recurse || depth === 0)
+        walk(readdir(file), extensions, recurse, depth + 1, out);
       continue;
     }
 
-    const isJS = extname(file) === '.js';
-
-    if (stat.isFile() && isJS) {
+    // If a file was given to us explicity,
+    // do not filter. The result of a glob is
+    // considered explicit (mimic mocha behavior).
+    if (depth === 0) {
+      if (!stat.isFile()) {
+        // Mocha throws with a nasty error
+        // in this case. We can do better.
+        throw new Error(`Could not resolve path: "${file}".`);
+      }
       out.push(file);
       continue;
     }
+
+    // Files only.
+    if (!stat.isFile())
+      continue;
+
+    // No dotfiles.
+    if (basename(file)[0] === '.')
+      continue;
+
+    // Only our specific extensions.
+    if (extensions.length > 0) {
+      const ext = extname(file);
+
+      if (extensions.indexOf(ext) === -1)
+        continue;
+    }
+
+    out.push(file);
   }
 
   return out;
@@ -183,11 +256,12 @@ function walk(files, limit, out) {
 
 function exclude(files, excludes) {
   assert(Array.isArray(files));
-  assert(excludes instanceof Set);
+  assert(Array.isArray(excludes));
 
-  return files.filter((file) => {
-    const name = basename(file);
-    return !excludes.has(name);
+  return files.filter((name) => {
+    return excludes.every((pattern) => {
+      return !glob.minimatch(name, pattern);
+    });
   });
 }
 
@@ -525,8 +599,9 @@ function parseArgs() {
     port: -1
   };
 
-  const excludes = new Set();
   const fileArgs = [];
+  const extensions = [];
+  const excludes = [];
   const reporterOptions = options.reporterOptions;
 
   let files = options.files;
@@ -691,6 +766,19 @@ function parseArgs() {
         break;
       }
 
+      case '--extension': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        if (next[0] !== '.')
+          next = '.' + next;
+
+        extensions.push(next);
+        i += 1;
+
+        break;
+      }
+
       case '--interfaces': {
         stdout.write(INTERFACES + '\n');
         exit(0);
@@ -744,8 +832,7 @@ function parseArgs() {
         if (!next)
           throw new Error(`Invalid option for ${arg}.`);
 
-        next = basename(next);
-        excludes.add(next);
+        excludes.push(next);
 
         i += 1;
 
@@ -850,13 +937,27 @@ function parseArgs() {
       files.push('test.js');
   }
 
-  files = fileArgs.concat(files);
-  files = files.map(file => resolve(cwd, file));
-  files = flatten(files, recurse);
+  if (extensions.length === 0)
+    extensions.push('.js');
+
+  files = globify(files);
+  files = flatten(files, extensions, recurse);
   files = exclude(files, excludes);
+  files = files.map(file => resolve(cwd, file));
 
   if (sort)
     files.sort();
+
+  // Quick and dirty check for file args.
+  for (const file of fileArgs) {
+    if (!exists(file))
+      throw new Error(`Could not resolve path: "${file}".`);
+  }
+
+  // Note that file args aren't processed
+  // in any extra way other than resolving
+  // them against the current working dir.
+  files = fileArgs.map(file => resolve(cwd, file)).concat(files);
 
   if (files.length === 0)
     throw new Error('No test files found.');
