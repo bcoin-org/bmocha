@@ -39,6 +39,10 @@ $ bmocha --help
     --exclude <file>        a file to ignore
     -l, --listen            serve client-side test files (requires browserify)
     -p, --port <port>       port to listen on [8080]
+    --ssl                   use ssl to listen
+    --ssl-ignore            ignore certificate errors (headless) [false]
+    --cert                  path to ssl cert file
+    --key                   path to ssl key file
     -o, --open              open browser after serving
     -H, --headless          run tests in headless chrome
     --chrome <path>         chrome binary to use for headless mode
