@@ -72,6 +72,8 @@ const HELP = `
     -s, --slow <ms>         "slow" test threshold in milliseconds [75]
     -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
     -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    --check-leaks           check for global variable leaks
+    --globals               allow the given comma-delimited global [names]
     --interfaces            display available interfaces
     --exit                  force shutdown of the event loop after test run
     --allow-uncaught        enable uncaught errors to propagate
@@ -508,6 +510,8 @@ function parseArgs() {
     grep: null,
     fgrep: '',
     invert: false,
+    checkLeaks: false,
+    globals: [],
     requires: [],
     files: [],
     exit: false,
@@ -671,8 +675,19 @@ function parseArgs() {
         break;
       }
 
-      case '--no-timeouts': {
-        options.timeouts = false;
+      case '--check-leaks': {
+        options.checkLeaks = true;
+        break;
+      }
+
+      case '--globals': {
+        options.globals = next.split(',');
+
+        if (options.globals.indexOf('') !== -1)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        i += 1;
+
         break;
       }
 
@@ -689,6 +704,11 @@ function parseArgs() {
 
       case '--allow-uncaught': {
         options.uncaught = true;
+        break;
+      }
+
+      case '--no-timeouts': {
+        options.timeouts = false;
         break;
       }
 
