@@ -768,6 +768,7 @@ function parseArgs() {
         break;
       }
 
+      case '--global':
       case '--globals': {
         options.globals = next.split(',');
 

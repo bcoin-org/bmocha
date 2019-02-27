@@ -16,7 +16,8 @@
   "author": "Christopher Jeffrey <chjjeffrey@gmail.com>",
   "main": "./lib/bmocha.js",
   "bin": {
-    "bmocha": "./bin/bmocha.js"
+    "bmocha": "./bin/bmocha",
+    "bmocha.js": "./bin/bmocha.js"
   },
   "scripts": {
     "lint": "eslint bin/* lib/ test/ || exit 0",
