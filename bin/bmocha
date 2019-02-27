@@ -153,6 +153,11 @@ function exists(file) {
   }
 }
 
+function string(str) {
+  assert(typeof str === 'string');
+  return JSON.stringify(str);
+}
+
 function globify(files) {
   assert(Array.isArray(files));
 
@@ -169,7 +174,7 @@ function globify(files) {
       const result = glob.sync(file, options);
 
       if (result.length === 0)
-        throw new Error(`Could not resolve pattern: "${file}".`);
+        throw new Error(`Could not resolve pattern: ${string(file)}.`);
 
       out.push(...result);
 
@@ -186,7 +191,7 @@ function globify(files) {
       //
       // But this seems messy and non-explicit.
       // It also doesn't account for custom extensions.
-      throw new Error(`Could not resolve path: "${file}".`);
+      throw new Error(`File not found: ${string(file)}.`);
     }
 
     out.push(file);
@@ -230,7 +235,7 @@ function walk(files, extensions, recurse, depth, out) {
       if (!stat.isFile()) {
         // Mocha throws with a nasty error
         // in this case. We can do better.
-        throw new Error(`Could not resolve path: "${file}".`);
+        throw new Error(`Not a regular file: ${string(file)}.`);
       }
       out.push(file);
       continue;
@@ -1006,7 +1011,7 @@ function parseArgs() {
   // Quick and dirty check for file args.
   for (const file of fileArgs) {
     if (!exists(file))
-      throw new Error(`Could not resolve path: "${file}".`);
+      throw new Error(`File not found: "${string(file)}".`);
   }
 
   // Note that file args aren't processed
