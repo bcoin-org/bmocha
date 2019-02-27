@@ -8,8 +8,6 @@
 
 'use strict';
 
-process.title = 'bmocha';
-
 const {spawn} = require('child_process');
 const {join} = require('path');
 
@@ -247,6 +245,14 @@ function main() {
     }
 
     argv.push(arg);
+  }
+
+  // All pointless if we didn't have any
+  // node options. Use the same process
+  // to speed things up.
+  if (execArgv.length === 0) {
+    require(argv[0]);
+    return;
   }
 
   const args = execArgv.concat(argv);
