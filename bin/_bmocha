@@ -1012,7 +1012,7 @@ function parseArgs() {
   // Quick and dirty check for file args.
   for (const file of fileArgs) {
     if (!exists(file))
-      throw new Error(`File not found: "${string(file)}".`);
+      throw new Error(`File not found: ${string(file)}.`);
   }
 
   // Note that file args aren't processed
@@ -1113,8 +1113,8 @@ function catcher(reject) {
     options = parseArgs();
   } catch (e) {
     if (e.code === 'ENOENT') {
-      const file = relative(cwd, e.path);
-      stderr.write(`File not found: ${file}.\n`);
+      const file = relative(cwd, resolve(e.path));
+      stderr.write(`File not found: ${string(file)}.\n`);
       return 1;
     }
     stderr.write(e.message + '\n');
