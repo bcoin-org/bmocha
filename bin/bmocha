@@ -182,7 +182,7 @@ function isValueOption(arg) {
 function main() {
   const file = process.execPath || process.argv[0];
   const execArgv = (process.execArgv || []).slice();
-  const argv = [join(__dirname, 'bmocha.js')];
+  const argv = [join(__dirname, '_bmocha')];
 
   for (let i = 2; i < process.argv.length; i++) {
     let arg = process.argv[i];

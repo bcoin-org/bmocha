@@ -17,7 +17,7 @@
   "main": "./lib/bmocha.js",
   "bin": {
     "bmocha": "./bin/bmocha",
-    "bmocha.js": "./bin/bmocha.js"
+    "_bmocha": "./bin/_bmocha"
   },
   "scripts": {
     "lint": "eslint bin/* lib/ test/ || exit 0",
