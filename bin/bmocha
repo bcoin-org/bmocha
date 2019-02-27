@@ -181,6 +181,7 @@ function isValueOption(arg) {
 function main() {
   const file = process.execPath || process.argv[0];
   const execArgv = (process.execArgv || []).slice();
+  const execArgvLen = execArgv.length;
   const argv = [join(__dirname, '_bmocha')];
 
   for (let i = 2; i < process.argv.length; i++) {
@@ -249,7 +250,7 @@ function main() {
   // All pointless if we didn't have any
   // node options. Use the same process
   // to speed things up.
-  if (execArgv.length === process.execArgv.length) {
+  if (execArgv.length === execArgvLen) {
     require('./_bmocha');
     return;
   }
@@ -265,9 +266,9 @@ function main() {
   const onSigint = () => ps.kill('SIGINT');
   const onSigterm = () => ps.kill('SIGTERM');
 
-  process.once('SIGHUP', onSighup);
-  process.once('SIGINT', onSigint);
-  process.once('SIGTERM', onSigterm);
+  process.on('SIGHUP', onSighup);
+  process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigterm);
 
   ps.on('exit', (code, signal) => {
     process.removeListener('SIGHUP', onSighup);
