@@ -249,8 +249,8 @@ function main() {
   // All pointless if we didn't have any
   // node options. Use the same process
   // to speed things up.
-  if (execArgv.length === 0) {
-    require(argv[0]);
+  if (execArgv.length === process.execArgv.length) {
+    require('./_bmocha');
     return;
   }
 
