@@ -8,7 +8,6 @@
 
 'use strict';
 
-const {spawn} = require('child_process');
 const {join} = require('path');
 
 const parts = process.version.split(/[^\d]/);
@@ -255,6 +254,7 @@ function main() {
     return;
   }
 
+  const {spawn} = require('child_process');
   const args = execArgv.concat(argv);
 
   const ps = spawn(file, args, {
