@@ -905,7 +905,7 @@ function parseArgs() {
     open: false,
     port: -1,
     recurse: false,
-    reporter: env.BMOCHA_REPORTER || 'spec',
+    reporter: 'spec',
     reporterOptions: Object.create(null),
     requires: [],
     retries: 0,
@@ -1496,7 +1496,6 @@ function catcher(reject) {
 
   env.BMOCHA = '1';
   env.NODE_TEST = '1';
-  env.BMOCHA_REPORTER = options.reporter;
 
   const mocha = new Mocha(options);
 

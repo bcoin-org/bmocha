@@ -767,25 +767,7 @@ describe('Mocha', function() {
 
   describe('Paranoia', function() {
     it('should have called a total number of tests', () => {
-      // Give _explicit_ output to the user to
-      // prove we're actually running these things.
-      if (process.env.BMOCHA_REPORTER === 'spec') {
-        const {stderr, exit} = process;
-
-        if (called !== TOTAL_TESTS) {
-          stderr.write('      ');
-          stderr.write(`\x1b[31mx Needed ${TOTAL_TESTS} tests,`);
-          stderr.write(` got: ${called}\x1b[m\n`);
-          exit(1);
-          return;
-        }
-
-        stderr.write('      ');
-        stderr.write('\x1b[32m\u2713\x1b[m');
-        stderr.write(` \x1b[90mcalled ${called} tests\x1b[m\n`);
-      } else {
-        assert.strictEqual(called, TOTAL_TESTS);
-      }
+      assert.strictEqual(called, TOTAL_TESTS);
     });
   });
 });
