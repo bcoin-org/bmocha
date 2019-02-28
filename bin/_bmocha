@@ -1503,7 +1503,7 @@ function catcher(reject) {
     mocha.catcher = catcher;
 
   if (options.watch)
-    mocha.exit = code => {};
+    mocha.exit = (code) => {};
   else
     mocha.exit = exit;
 
