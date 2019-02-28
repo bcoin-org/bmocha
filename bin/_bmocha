@@ -1502,7 +1502,10 @@ function catcher(reject) {
   if (!options.uncaught)
     mocha.catcher = catcher;
 
-  mocha.exit = exit;
+  if (options.watch)
+    mocha.exit = code => {};
+  else
+    mocha.exit = exit;
 
   module.paths.push(cwd, join(cwd, 'node_modules'));
 
