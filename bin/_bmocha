@@ -149,6 +149,11 @@ const IN_MOCHA = basename(cwd) === 'bmocha';
  * Helpers
  */
 
+function string(str) {
+  assert(typeof str === 'string');
+  return JSON.stringify(str);
+}
+
 function wrap(file) {
   assert(typeof file === 'string');
 
@@ -178,11 +183,6 @@ function exists(file) {
       throw e;
     return false;
   }
-}
-
-function string(str) {
-  assert(typeof str === 'string');
-  return JSON.stringify(str);
 }
 
 function globify(files) {
@@ -323,12 +323,10 @@ function getFiles(root, extensions, out = []) {
       continue;
 
     const file = join(root, name);
-    const stat = fs.statSync(file);
+    const stat = fs.lstatSync(file);
 
     if (stat.isDirectory()) {
-      // Avoid symlink loops (diverges from mocha).
-      if (!fs.lstatSync(file).isSymbolicLink())
-        getFiles(file, extensions, out);
+      getFiles(file, extensions, out);
       continue;
     }
 
