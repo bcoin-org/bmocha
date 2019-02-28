@@ -761,6 +761,13 @@ function getArgs(argv) {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '-h':
+      case '--help':
+      case '--interfaces':
+      case '--reporters':
+      case '-V':
+      case '--version':
+        return args;
       case '--config': {
         if (i + 1 < args.length)
           config = args[++i];
