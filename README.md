@@ -11,44 +11,70 @@ Bmocha's CLI mimics Mocha's CLI for most features:
 $ bmocha --help
 
   Usage: bmocha [options] [files]
+         bmocha debug [options] [files]
 
   Options:
 
-    -V, --version           output the version number
+    -A, --async-only        require all tests to use a callback or promise
+                            (default: false)
+    --allow-uncaught        enable uncaught errors to propagate (default: false)
+    -b, --bail              bail after first test failure (default: false)
     -c, --colors            force enabling of colors
     -C, --no-colors         force disabling of colors
-    -O, --reporter-options  reporter-specific options
-    -R, --reporter <name>   specify the reporter to use (default: spec)
-    -S, --sort              sort test files
-    -b, --bail              bail after first test failure
-    -g, --grep <pattern>    only run tests matching <pattern>
-    -f, --fgrep <string>    only run tests containing <string>
-    -i, --invert            inverts --grep and --fgrep matches
-    -r, --require <name>    require the given module
-    -s, --slow <ms>         "slow" test threshold in milliseconds [75]
-    -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
-    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
-    --interfaces            display available interfaces
+    --config <path>         path to config file (default: nearest rc file)
+    --check-leaks           check for global variable leaks (default: false)
+    --chrome <path>         chrome binary to use for headless mode
+    --diff                  show diff on failure (default: true)
+    --exclude <file>        a file to ignore
     --exit                  force shutdown of the event loop after test run
-    --allow-uncaught        enable uncaught errors to propagate
-    --no-timeouts           disables timeouts
-    --recursive             include sub directories
+                            (default: false)
+    --extension <ext>       file extension(s) to load and/or watch (default: js)
+    -f, --fgrep <string>    only run tests containing <string>
+    --file <file>           include a file to be ran during the suite
+    --forbid-only           fail if exclusive test(s) encountered
+                            (default: false)
+    --forbid-pending        fail if pending test(s) encountered (default: false)
+    --full-trace            display full stack traces (noop) (default: false)
+    -g, --grep <pattern>    only run tests matching <pattern>
+    -G, --growl             enable growl notifications (unimplemented)
+                            (default: false)
+    --globals <names>       allow the given comma-delimited global <names>
+    -H, --headless          run tests in headless chrome (default: false)
+    -h, --help              output usage information
+    -i, --invert            inverts --grep and --fgrep matches (default: false)
+    --inline-diffs          display actual/expected differences inline (noop)
+                            (default: false)
+    --interfaces            display available interfaces
+    -l, --listen            serve client-side test files (requires browserify)
+                            (default: false)
+    -m, --cmd <cmd>         set browser command (default: $BROWSER)
+    -o, --open              open browser after serving (default: false)
+    -O, --reporter-options  reporter-specific options
+    --opts <path>           path to "mocha.opts" (default: ./test/mocha.opts)
+    --package <path>        path to package.json for config
+                            (default: ./package.json)
+    -p, --port <port>       port to listen on (default: 8080)
+    -R, --reporter <name>   specify the reporter to use (default: spec)
+    -r, --require <name>    require the given module
+    --recursive             include sub directories (default: false)
     --reporters             display available reporters
     --retries <times>       set numbers of time to retry a failed test case
-    --file <file>           include a file to be ran during the suite
-    --exclude <file>        a file to ignore
-    -l, --listen            serve client-side test files (requires browserify)
-    -p, --port <port>       port to listen on [8080]
-    --ssl                   use ssl to listen
-    --ssl-ignore            ignore certificate errors (headless) [false]
-    --cert                  path to ssl cert file
-    --key                   path to ssl key file
-    -o, --open              open browser after serving
-    -H, --headless          run tests in headless chrome
-    --chrome <path>         chrome binary to use for headless mode
-    -m, --cmd <cmd>         set browser command
-    -z, --console           use console in browser
-    -h, --help              output usage information
+                            (default: 0)
+    -s, --slow <ms>         "slow" test threshold in milliseconds (default: 75)
+    -S, --sort              sort test files (default: false)
+    --ssl                   use ssl to listen (default: false)
+    --ssl-cert              path to ssl cert file
+    --ssl-ignore            ignore certificate errors (headless)
+                            (default: false)
+    --ssl-key               path to ssl key file
+    -t, --timeout <ms>      set test-case timeout in milliseconds
+                            (default: 2000)
+    --timeouts              enables timeouts (default: true)
+    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    -V, --version           output the version number
+    -w, --watch             watch files in the current working directory
+                            (default: false)
+    -z, --console           use console in browser (default: false)
 ```
 
 ### Example
