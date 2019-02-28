@@ -105,10 +105,10 @@ const HELP = `
     -s, --slow <ms>         "slow" test threshold in milliseconds (default: 75)
     -S, --sort              sort test files (default: false)
     --ssl                   use ssl to listen (default: false)
-    --ssl-cert              path to ssl cert file
+    --ssl-cert <path>       path to ssl cert file
     --ssl-ignore            ignore certificate errors (headless)
                             (default: false)
-    --ssl-key               path to ssl key file
+    --ssl-key <path>        path to ssl key file
     -t, --timeout <ms>      set test-case timeout in milliseconds
                             (default: 2000)
     --timeouts              enables timeouts (default: true)
