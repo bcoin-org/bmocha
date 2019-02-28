@@ -64,7 +64,7 @@ const HELP = `
     -b, --bail              bail after first test failure
     -c, --colors            force enabling of colors
     -C, --no-colors         force disabling of colors
-    --config <path>         path to config file (unimplemented)
+    --config <path>         path to config file
     --check-leaks           check for global variable leaks
     --chrome <path>         chrome binary to use for headless mode
     --diff                  show diff on failure
@@ -92,7 +92,7 @@ const HELP = `
     -o, --open              open browser after serving
     -O, --reporter-options  reporter-specific options
     --opts <path>           path to "mocha.opts"
-    --package <path>        path to package.json for config (unimplemented)
+    --package <path>        path to package.json for config
     -p, --port <port>       port to listen on [8080]
     -R, --reporter <name>   specify the reporter to use (default: spec)
     -r, --require <name>    require the given module
@@ -134,6 +134,7 @@ const REPORTERS = `
 `;
 
 const DEFAULT_OPTS = './test/mocha.opts';
+const DEFAULT_PKG = './package.json';
 const BIN = resolve(__dirname, '..', 'bin');
 const LIB = resolve(__dirname, '..', 'lib');
 
@@ -326,10 +327,6 @@ function getFiles(root, extensions, out = []) {
 
     // Files only.
     if (!stat.isFile())
-      continue;
-
-    // No dotfiles.
-    if (name[0] === '.')
       continue;
 
     // Only our specific extensions.
@@ -638,6 +635,78 @@ function runHeadless(url, chrome, extra = []) {
   return [[file, ...args], ps];
 }
 
+function findConfig(root) {
+  assert(typeof root === 'string');
+
+  let dir = root;
+
+  for (;;) {
+    for (const name of ['.mocharc.js',
+                        '.mocharc.yaml',
+                        '.mocharc.yml',
+                        '.mocharc.jsonc',
+                        '.mocharc.json']) {
+      const file = join(dir, name);
+
+      if (exists(file))
+        return file;
+    }
+
+    const next = dirname(dir);
+
+    if (next === dir)
+      break;
+
+    dir = next;
+  }
+
+  return null;
+}
+
+function parseConfig(json) {
+  assert(json && typeof json === 'object');
+
+  const args = [];
+
+  for (const key of Object.keys(json)) {
+    const value = json[key];
+
+    switch (typeof value) {
+      case 'boolean':
+        args.push(value ? `--${key}` : `--no-${key}`);
+        break;
+      case 'number':
+      case 'string':
+        args.push(`--${key}`);
+        args.push(String(value));
+        break;
+      case 'object':
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            args.push(`--${key}`);
+            args.push(String(item));
+          }
+        } else if (value instanceof RegExp) {
+          args.push(value.source);
+        }
+        break;
+    }
+  }
+
+  return args;
+}
+
+function readJS(file) {
+  assert(typeof file === 'string');
+  return require(resolve(cwd, file));
+}
+
+function readJSON(file) {
+  assert(typeof file === 'string');
+  const text = fs.readFileSync(file, 'utf8');
+  return JSON.parse(text);
+}
+
 function getArgs(argv) {
   assert(Array.isArray(argv));
 
@@ -675,27 +744,98 @@ function getArgs(argv) {
 
   const out = [];
 
+  let config = null;
   let opts = null;
-
-  if (exists(DEFAULT_OPTS))
-    opts = DEFAULT_OPTS;
+  let pkg = null;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '--config': {
+        if (i + 1 < args.length)
+          config = args[++i];
+        break;
+      }
+      case '--no-config': {
+        config = false;
+        break;
+      }
       case '--opts': {
         if (i + 1 < args.length)
-          opts = args[i + 1];
-        i += 1;
+          opts = args[++i];
         break;
       }
       case '--no-opts': {
-        opts = null;
+        opts = false;
+        break;
+      }
+      case '--package': {
+        if (i + 1 < args.length)
+          pkg = args[++i];
+        break;
+      }
+      case '--no-package': {
+        pkg = false;
         break;
       }
     }
   }
 
-  if (opts != null && opts !== '/dev/null') {
+  if (config === null)
+    config = findConfig(cwd);
+
+  if (typeof config === 'string' && config !== '/dev/null') {
+    const ext = extname(config);
+
+    let json = null;
+
+    switch (ext) {
+      case '.js':
+        json = readJS(config);
+        break;
+      case '.json':
+        json = readJSON(config);
+        break;
+      default:
+        stderr.write('Warning: ');
+        stderr.write(`cannot read ${ext} config: `);
+        stderr.write(`${string(config)}.\n`);
+        break;
+    }
+
+    if (json && typeof json === 'object') {
+      out.push(...parseConfig(json));
+
+      if (pkg === null && typeof json.package !== undefined)
+        pkg = json.package;
+
+      if (opts === null && typeof json.opts !== undefined)
+        opts = json.opts;
+    }
+  }
+
+  if (pkg === null && exists(DEFAULT_PKG))
+    pkg = DEFAULT_PKG;
+
+  if (typeof pkg === 'string' && pkg !== '/dev/null') {
+    const data = readJSON(pkg);
+
+    if (!data || typeof data !== 'object')
+      throw new Error(`Invalid package.json: ${string(pkg)}.`);
+
+    const json = data.mocha;
+
+    if (json && typeof json === 'object') {
+      out.push(...parseConfig(json));
+
+      if (opts === null && typeof json.opts !== undefined)
+        opts = json.opts;
+    }
+  }
+
+  if (opts === null && exists(DEFAULT_OPTS))
+    opts = DEFAULT_OPTS;
+
+  if (typeof opts === 'string' && opts !== '/dev/null') {
     const text = fs.readFileSync(opts, 'utf8');
     const args = text.replace(/^#.*$/gm, '')
                      .replace(/\\\s/g, '%20')
@@ -829,10 +969,8 @@ function parseArgs() {
       }
 
       case '--config': {
-        if (value) {
+        if (value)
           next();
-          throw new Error('Config support is unimplemented.');
-        }
         break;
       }
 
@@ -1009,10 +1147,8 @@ function parseArgs() {
       }
 
       case '--package': {
-        if (value) {
+        if (value)
           next();
-          throw new Error('Package support is unimplemented.');
-        }
         break;
       }
 
