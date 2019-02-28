@@ -274,6 +274,11 @@ function exclude(files, excludes) {
   });
 }
 
+function resolvify(files) {
+  assert(Array.isArray(files));
+  return files.map(file => resolve(cwd, file));
+}
+
 function spawn(file, args, shell = false) {
   const cp = require('child_process');
 
@@ -652,6 +657,7 @@ function parseArgs() {
       }
 
       case '-O':
+      case '--reporter-option':
       case '--reporter-options': {
         if (!next)
           throw new Error(`Invalid option for: ${arg}.`);
@@ -932,6 +938,7 @@ function parseArgs() {
         options.cert = fs.readFileSync(next);
 
         i += 1;
+
         break;
       }
 
@@ -944,6 +951,7 @@ function parseArgs() {
         options.key = fs.readFileSync(next);
 
         i += 1;
+
         break;
       }
 
@@ -1004,7 +1012,7 @@ function parseArgs() {
   files = globify(files);
   files = flatten(files, extensions, recurse);
   files = exclude(files, excludes);
-  files = files.map(file => resolve(cwd, file));
+  files = resolvify(files);
 
   if (sort)
     files.sort();
@@ -1018,7 +1026,7 @@ function parseArgs() {
   // Note that file args aren't processed
   // in any extra way other than resolving
   // them against the current working dir.
-  files = fileArgs.map(file => resolve(cwd, file)).concat(files);
+  files = resolvify(fileArgs).concat(files);
 
   if (files.length === 0)
     throw new Error('No test files found.');
