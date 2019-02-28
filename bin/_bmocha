@@ -106,6 +106,7 @@ const HELP = `
     --ssl-ignore            ignore certificate errors (headless) [false]
     --ssl-key               path to ssl key file
     -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
+    --timeouts              enables timeouts
     -u, --ui <name>         specify user-interface (bdd) (default: bdd)
     -V, --version           output the version number
     -w, --watch             watch files in the current working directory
@@ -694,11 +695,11 @@ function getArgs(argv) {
     }
   }
 
-  if (opts != null) {
+  if (opts != null && opts !== '/dev/null') {
     const text = fs.readFileSync(opts, 'utf8');
     const args = text.replace(/^#.*$/gm, '')
                      .replace(/\\\s/g, '%20')
-                     .split(/\s/);
+                     .split(/\s+/);
 
     for (const arg of args) {
       if (arg.length === 0)
@@ -769,187 +770,176 @@ function parseArgs() {
     reporterOptions
   } = options;
 
+  let i = 0;
+  let value = true;
+
   const args = getArgs(argv.slice(2));
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+  const ensure = () => {
+    if (!value)
+      throw new Error(`Invalid argument: ${args[i]}.`);
+  };
 
-    let next = '';
+  const next = () => {
+    ensure();
 
-    if (i + 1 < args.length)
-      next = args[i + 1];
+    if (i + 1 >= args.length || args[i + 1].length === 0)
+      throw new Error(`Invalid option for ${args[i]}.`);
+
+    return args[++i];
+  };
+
+  for (; i < args.length; i++) {
+    let arg = args[i];
+
+    value = true;
+
+    if (arg.startsWith('--no-')) {
+      arg = `--${arg.substring(5)}`;
+      value = false;
+    }
 
     switch (arg) {
       case '-A':
       case '--async-only': {
-        options.asyncOnly = true;
+        options.asyncOnly = value;
         break;
       }
 
       case '--allow-uncaught': {
-        options.uncaught = true;
+        options.uncaught = value;
         break;
       }
 
       case '-b':
       case '--bail': {
-        options.bail = true;
+        options.bail = value;
         break;
       }
 
       case '-c':
       case '--colors': {
-        options.colors = true;
+        options.colors = value;
         break;
       }
 
-      case '-C':
-      case '--no-colors': {
+      case '-C': {
         options.colors = false;
         break;
       }
 
       case '--config': {
-        throw new Error('Config support is unimplemented.');
+        if (value) {
+          next();
+          throw new Error('Config support is unimplemented.');
+        }
+        break;
       }
 
       case '--check-leaks': {
-        options.checkLeaks = true;
+        options.checkLeaks = value;
         break;
       }
 
       case '--chrome': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
         options.listen = true;
         options.open = true;
         options.headless = true;
-        options.chrome = next;
-
-        i += 1;
-
+        options.chrome = next();
         break;
       }
 
       case '--diff': {
-        options.diff = true;
+        options.diff = value;
         break;
       }
 
       case '--exclude': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        excludes.push(next);
-
-        i += 1;
-
+        excludes.push(next());
         break;
       }
 
       case '--exit': {
-        options.exit = true;
+        options.exit = value;
         break;
       }
 
       case '--extension':
       case '--watch-extensions': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        for (let ext of next.split(',')) {
+        for (let ext of next().split(',')) {
           if (ext.length === 0 || ext === '.')
-            throw new Error(`Invalid extension for ${arg}.`);
+            throw new Error(`Invalid file extension: ${ext}.`);
 
           if (ext[0] !== '.')
             ext = '.' + ext;
 
           extensions.push(ext);
         }
-
-        i += 1;
-
         break;
       }
 
       case '-f':
       case '--fgrep': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.fgrep = next;
-
-        i += 1;
-
+        options.fgrep = value ? next() : '';
         break;
       }
 
       case '--file': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        fileArgs.push(next);
-
-        i += 1;
-
+        fileArgs.push(next());
         break;
       }
 
       case '--forbid-only': {
-        options.forbidOnly = true;
+        options.forbidOnly = value;
         break;
       }
 
       case '--forbid-pending': {
-        options.forbidPending = true;
+        options.forbidPending = value;
         break;
       }
 
       case '--full-trace': {
-        options.fullTrace = true;
+        options.fullTrace = value;
         break;
       }
 
       case '-g':
       case '--grep': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.grep = new RegExp(next);
-
-        i += 1;
-
+        options.grep = value ? new RegExp(next()) : null;
         break;
       }
 
       case '-G':
       case '--growl': {
-        throw new Error('Growl support is unimplemented.');
+        if (value)
+          throw new Error('Growl support is unimplemented.');
+        break;
       }
 
       case '--global':
       case '--globals': {
-        options.globals = next.split(',');
+        const globals = next().split(',');
 
-        if (options.globals.indexOf('') !== -1)
-          throw new Error(`Invalid option for ${arg}.`);
+        if (globals.indexOf('') !== -1)
+          throw new Error(`Invalid globals: ${args[i]}.`);
 
-        i += 1;
+        options.globals = globals;
 
         break;
       }
 
       case '-H':
       case '--headless': {
-        options.listen = true;
-        options.open = true;
-        options.headless = true;
+        options.listen = value;
+        options.open = value;
+        options.headless = value;
         break;
       }
 
       case '-h':
       case '--help': {
+        ensure();
         stdout.write(HELP + '\n');
         exit(0);
         break;
@@ -957,16 +947,17 @@ function parseArgs() {
 
       case '-i':
       case '--invert': {
-        options.invert = true;
+        options.invert = value;
         break;
       }
 
       case '--inline-diffs': {
-        options.inlineDiffs = true;
+        options.inlineDiffs = value;
         break;
       }
 
       case '--interfaces': {
+        ensure();
         stdout.write(INTERFACES + '\n');
         exit(0);
         break;
@@ -974,56 +965,33 @@ function parseArgs() {
 
       case '-l':
       case '--listen': {
-        options.listen = true;
+        options.listen = value;
         break;
       }
 
       case '-m':
       case '--cmd': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
         options.listen = true;
         options.open = true;
-        options.cmd = next;
-
-        i += 1;
-
-        break;
-      }
-
-      case '--no-diff': {
-        options.diff = false;
-        break;
-      }
-
-      case '--no-opts': {
-        break;
-      }
-
-      case '--no-timeouts': {
-        options.timeouts = false;
+        options.cmd = next();
         break;
       }
 
       case '-o':
       case '--open': {
-        options.listen = true;
-        options.open = true;
+        options.listen = value;
+        options.open = value;
         break;
       }
 
       case '-O':
       case '--reporter-option':
       case '--reporter-options': {
-        if (!next)
-          throw new Error(`Invalid option for: ${arg}.`);
-
-        for (const opt of next.split(',')) {
+        for (const opt of next().split(',')) {
           const parts = opt.split('=');
 
           if (parts.length > 2 || parts.length === 0)
-            throw new Error(`Invalid reporter option ${opt}.`);
+            throw new Error(`Invalid reporter option: ${opt}.`);
 
           if (parts.length === 2)
             reporterOptions[parts[0]] = parts[1];
@@ -1031,153 +999,138 @@ function parseArgs() {
             reporterOptions[parts[0]] = true;
         }
 
-        i += 1;
-
         break;
       }
 
       case '--opts': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        i += 1;
-
+        if (value)
+          next();
         break;
       }
 
       case '--package': {
-        throw new Error('Package support is unimplemented.');
+        if (value) {
+          next();
+          throw new Error('Package support is unimplemented.');
+        }
+        break;
       }
 
       case '-p':
       case '--port': {
-        options.port = next >>> 0;
+        const port = next() >>> 0;
 
-        if (!next || options.port > 0xffff)
-          throw new Error(`Invalid option for ${arg}.`);
+        if (port > 0xffff)
+          throw new Error(`Invalid port: ${port}.`);
 
+        options.port = port;
         options.listen = true;
-        i += 1;
 
         break;
       }
 
       case '-R':
       case '--reporter': {
-        if (!next)
-          throw new Error(`Invalid option for: ${arg}.`);
-
-        options.reporter = next;
-
-        i += 1;
-
+        options.reporter = next();
         break;
       }
 
       case '-r':
       case '--require': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
+        let file = next();
 
-        if (exists(next) || exists(`${next}.js`))
-          next = resolve(cwd, next);
+        if (exists(file) || exists(`${file}.js`))
+          file = resolve(cwd, file);
 
-        options.requires.push(next);
-        i += 1;
+        options.requires.push(file);
 
         break;
       }
 
       case '--recursive': {
-        options.recurse = true;
+        options.recurse = value;
         break;
       }
 
       case '--reporters': {
+        ensure();
         stdout.write(REPORTERS + '\n');
         exit(0);
         break;
       }
 
       case '--retries': {
-        options.retries = next >>> 0;
-        i += 1;
+        options.retries = value ? next() >>> 0 : 0;
         break;
       }
 
       case '-s':
       case '--slow': {
-        options.slow = next >>> 0;
-        i += 1;
+        options.slow = next() >>> 0;
         break;
       }
 
       case '-S':
       case '--sort': {
-        options.sort = true;
+        options.sort = value;
         break;
       }
 
       case '--ssl': {
-        options.listen = true;
-        options.ssl = true;
+        options.listen = value;
+        options.ssl = value;
         break;
       }
 
       case '--cert':
       case '--ssl-cert': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
         options.listen = true;
         options.ssl = true;
-        options.cert = fs.readFileSync(next);
-
-        i += 1;
-
+        options.cert = fs.readFileSync(next());
         break;
       }
 
       case '--ssl-ignore': {
-        options.headless = true;
-        options.open = true;
-        options.listen = true;
-        options.ssl = true;
-        options.sslIgnore = true;
+        options.headless = value;
+        options.open = value;
+        options.listen = value;
+        options.ssl = value;
+        options.sslIgnore = value;
         break;
       }
 
       case '--key':
       case '--ssl-key': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
         options.listen = true;
         options.ssl = true;
-        options.key = fs.readFileSync(next);
-
-        i += 1;
-
+        options.key = fs.readFileSync(next());
         break;
       }
 
       case '-t':
       case '--timeout': {
-        options.timeout = next >>> 0;
-        i += 1;
+        options.timeout = value ? next() >>> 0 : 0;
+        break;
+      }
+
+      case '--timeouts': {
+        options.timeouts = value;
         break;
       }
 
       case '-u':
       case '--ui': {
-        if (next !== 'bdd')
-          throw new Error(`Invalid interface: ${next}.`);
-        i += 1;
+        const ui = next();
+
+        if (ui !== 'bdd')
+          throw new Error(`Invalid interface: ${ui}.`);
+
         break;
       }
 
       case '-V':
       case '--version': {
+        ensure();
         stdout.write(VERSION + '\n');
         exit(0);
         break;
@@ -1185,24 +1138,24 @@ function parseArgs() {
 
       case '-w':
       case '--watch': {
-        options.watch = true;
+        options.watch = value;
         break;
       }
 
       case '-z':
       case '--console': {
-        options.console = true;
+        options.console = value;
         break;
       }
 
       default: {
         if (arg.length === 0 || arg[0] === '-')
-          throw new Error(`Invalid argument: ${arg}.`);
+          throw new Error(`Invalid argument: ${args[i]}.`);
 
         if (i === 0 && arg === 'init')
           throw new Error('"init" is unimplemented.');
 
-        options.files.push(arg);
+        files.push(arg);
 
         break;
       }
