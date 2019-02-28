@@ -76,7 +76,7 @@ const HELP = `
     --forbid-only           fail if exclusive test(s) encountered
                             (default: false)
     --forbid-pending        fail if pending test(s) encountered (default: false)
-    --full-trace            display full stack traces (noop) (default: false)
+    --full-trace            display full stack traces (default: false)
     -g, --grep <pattern>    only run tests matching <pattern>
     -G, --growl             enable growl notifications (unimplemented)
                             (default: false)
@@ -899,7 +899,6 @@ function parseArgs() {
     globals: [],
     grep: null,
     headless: false,
-    inlineDiffs: false,
     invert: false,
     key: null,
     listen: false,
@@ -1111,7 +1110,6 @@ function parseArgs() {
       }
 
       case '--inline-diffs': {
-        options.inlineDiffs = value;
         break;
       }
 

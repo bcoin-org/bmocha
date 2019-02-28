@@ -34,7 +34,7 @@ $ bmocha --help
     --forbid-only           fail if exclusive test(s) encountered
                             (default: false)
     --forbid-pending        fail if pending test(s) encountered (default: false)
-    --full-trace            display full stack traces (noop) (default: false)
+    --full-trace            display full stack traces (default: false)
     -g, --grep <pattern>    only run tests matching <pattern>
     -G, --growl             enable growl notifications (unimplemented)
                             (default: false)
