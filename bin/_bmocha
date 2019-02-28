@@ -55,47 +55,61 @@ const VERSION = '1.0.1';
 
 const HELP = `
   Usage: bmocha [options] [files]
+         bmocha debug [options] [files]
 
   Options:
 
-    -V, --version           output the version number
+    -A, --async-only        require all tests to use a callback or promise
+    --allow-uncaught        enable uncaught errors to propagate
+    -b, --bail              bail after first test failure
     -c, --colors            force enabling of colors
     -C, --no-colors         force disabling of colors
-    -O, --reporter-options  reporter-specific options
-    -R, --reporter <name>   specify the reporter to use (default: spec)
-    -S, --sort              sort test files
-    -b, --bail              bail after first test failure
-    -g, --grep <pattern>    only run tests matching <pattern>
-    -f, --fgrep <string>    only run tests containing <string>
-    -i, --invert            inverts --grep and --fgrep matches
-    -r, --require <name>    require the given module
-    -s, --slow <ms>         "slow" test threshold in milliseconds [75]
-    -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
-    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    --config <path>         path to config file (unimplemented)
     --check-leaks           check for global variable leaks
-    --globals               allow the given comma-delimited global [names]
-    --extension             file extension(s) to load and/or watch
-    --interfaces            display available interfaces
+    --chrome <path>         chrome binary to use for headless mode
+    --diff                  show diff on failure
+    --exclude <file>        a file to ignore
     --exit                  force shutdown of the event loop after test run
-    --allow-uncaught        enable uncaught errors to propagate
+    --extension             file extension(s) to load and/or watch
+    -f, --fgrep <string>    only run tests containing <string>
+    --file <file>           include a file to be ran during the suite
+    --forbid-only           fail if exclusive test(s) encountered
+    --forbid-pending        fail if pending test(s) encountered
+    --full-trace            display full stack traces (noop)
+    -g, --grep <pattern>    only run tests matching <pattern>
+    -G, --growl             enable growl notifications (unimplemented)
+    --globals               allow the given comma-delimited global [names]
+    -H, --headless          run tests in headless chrome
+    -h, --help              output usage information
+    -i, --invert            inverts --grep and --fgrep matches
+    --inline-diffs          display actual/expected differences inline (noop)
+    --interfaces            display available interfaces
+    -l, --listen            serve client-side test files (requires browserify)
+    -m, --cmd <cmd>         set browser command
+    --no-diff               do not show diff on failure
+    --no-opts               do not load opts file
     --no-timeouts           disables timeouts
+    -o, --open              open browser after serving
+    -O, --reporter-options  reporter-specific options
+    --opts <path>           path to "mocha.opts"
+    --package <path>        path to package.json for config (unimplemented)
+    -p, --port <port>       port to listen on [8080]
+    -R, --reporter <name>   specify the reporter to use (default: spec)
+    -r, --require <name>    require the given module
     --recursive             include sub directories
     --reporters             display available reporters
     --retries <times>       set numbers of time to retry a failed test case
-    --file <file>           include a file to be ran during the suite
-    --exclude <file>        a file to ignore
-    -l, --listen            serve client-side test files (requires browserify)
-    -p, --port <port>       port to listen on [8080]
+    -s, --slow <ms>         "slow" test threshold in milliseconds [75]
+    -S, --sort              sort test files
     --ssl                   use ssl to listen
+    --ssl-cert              path to ssl cert file
     --ssl-ignore            ignore certificate errors (headless) [false]
-    --cert                  path to ssl cert file
-    --key                   path to ssl key file
-    -o, --open              open browser after serving
-    -H, --headless          run tests in headless chrome
-    --chrome <path>         chrome binary to use for headless mode
-    -m, --cmd <cmd>         set browser command
+    --ssl-key               path to ssl key file
+    -t, --timeout <ms>      set test-case timeout in milliseconds [2000]
+    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
+    -V, --version           output the version number
+    -w, --watch             watch files in the current working directory
     -z, --console           use console in browser
-    -h, --help              output usage information
 `;
 
 const INTERFACES = `
@@ -103,20 +117,24 @@ const INTERFACES = `
 `;
 
 const REPORTERS = `
-    dot - dot matrix
     doc - html documentation
-    spec - hierarchical spec list
+    dot - dot matrix
     json - single json object
-    progress - progress bar
-    list - spec-style listing
-    tap - test-anything-protocol
-    landing - unicode landing strip
-    xunit - xunit reporter
-    min - minimal reporter (great with --watch)
     json-stream - newline delimited json events
+    landing - unicode landing strip
+    list - spec-style listing
     markdown - markdown documentation (github flavour)
+    min - minimal reporter (great with --watch)
     nyan - nyan cat!
+    progress - progress bar
+    spec - hierarchical spec list
+    tap - test-anything-protocol
+    xunit - xunit reporter
 `;
+
+const DEFAULT_OPTS = './test/mocha.opts';
+const BIN = resolve(__dirname, '..', 'bin');
+const LIB = resolve(__dirname, '..', 'lib');
 
 /*
  * Helpers
@@ -221,10 +239,15 @@ function walk(files, extensions, recurse, depth, out) {
     const stat = fs.statSync(file);
 
     if (stat.isDirectory()) {
+      // Avoid symlink loops (diverges from mocha).
+      if (fs.lstatSync(file).isSymbolicLink())
+        continue;
+
       // Without the recurse option,
       // mocha delves one level deep.
       if (recurse || depth === 0)
         walk(readdir(file), extensions, recurse, depth + 1, out);
+
       continue;
     }
 
@@ -277,6 +300,77 @@ function exclude(files, excludes) {
 function resolvify(files) {
   assert(Array.isArray(files));
   return files.map(file => resolve(cwd, file));
+}
+
+function getFiles(root, extensions, out = []) {
+  assert(typeof root === 'string');
+  assert(Array.isArray(extensions));
+  assert(Array.isArray(out));
+
+  root = resolve(cwd, root);
+
+  for (const name of fs.readdirSync(root)) {
+    if (name === '.git' || name === 'node_modules')
+      continue;
+
+    const file = join(root, name);
+    const stat = fs.statSync(file);
+
+    if (stat.isDirectory()) {
+      // Avoid symlink loops (diverges from mocha).
+      if (!fs.lstatSync(file).isSymbolicLink())
+        getFiles(file, extensions, out);
+      continue;
+    }
+
+    // Files only.
+    if (!stat.isFile())
+      continue;
+
+    // No dotfiles.
+    if (name[0] === '.')
+      continue;
+
+    // Only our specific extensions.
+    if (extensions.length > 0) {
+      const ext = extname(name);
+
+      if (extensions.indexOf(ext) === -1)
+        continue;
+    }
+
+    // Ignore everything in
+    // our own lib and bin.
+    if (file.startsWith(BIN)
+        || file.startsWith(LIB)) {
+      continue;
+    }
+
+    out.push(file);
+  }
+
+  return out;
+}
+
+function watchFiles(files, callback) {
+  assert(Array.isArray(files));
+  assert(typeof callback === 'function');
+
+  const options = { interval: 100 };
+
+  const cb = async (cur, prev) => {
+    if (prev.mtime < cur.mtime) {
+      try {
+        await callback();
+      } catch (e) {
+        stderr.write(e.stack + '\n');
+        exit(1);
+      }
+    }
+  };
+
+  for (const file of files)
+    fs.watchFile(file, options, cb);
 }
 
 function spawn(file, args, shell = false) {
@@ -578,57 +672,106 @@ function getArgs(argv) {
     }
   }
 
-  return args;
+  const out = [];
+
+  let opts = null;
+
+  if (exists(DEFAULT_OPTS))
+    opts = DEFAULT_OPTS;
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--opts': {
+        if (i + 1 < args.length)
+          opts = args[i + 1];
+        i += 1;
+        break;
+      }
+      case '--no-opts': {
+        opts = null;
+        break;
+      }
+    }
+  }
+
+  if (opts != null) {
+    const text = fs.readFileSync(opts, 'utf8');
+    const args = text.replace(/^#.*$/gm, '')
+                     .replace(/\\\s/g, '%20')
+                     .split(/\s/);
+
+    for (const arg of args) {
+      if (arg.length === 0)
+        continue;
+
+      out.push(arg.replace(/%20/g, ' '));
+    }
+  }
+
+  out.push(...args);
+
+  return out;
 }
 
 function parseArgs() {
   const options = {
     __proto__: null,
-    slow: 75,
-    timeout: 2000,
-    timeouts: true,
-    retries: 0,
-    stream: stdout,
-    reporter: env.BMOCHA_REPORTER || 'spec',
-    reporterOptions: Object.create(null),
-    global: true,
-    windows: process.platform === 'win32',
-    colors: Boolean(stdout.isTTY),
+    asyncOnly: false,
     bail: false,
-    grep: null,
-    fgrep: '',
-    invert: false,
-    checkLeaks: false,
-    globals: [],
-    requires: [],
-    files: [],
-    exit: false,
-    uncaught: false,
-    listen: false,
-    open: false,
-    headless: false,
-    ssl: false,
-    sslIgnore: false,
     cert: null,
-    key: null,
+    checkLeaks: false,
     chrome: null,
     cmd: '',
+    colors: Boolean(stdout.isTTY),
     console: false,
-    port: -1
+    diff: true,
+    excludes: [],
+    exit: false,
+    extensions: [],
+    fgrep: '',
+    forbidOnly: false,
+    forbidPending: false,
+    fileArgs: [],
+    files: [],
+    fullTrace: false,
+    global: true,
+    globals: [],
+    grep: null,
+    headless: false,
+    inlineDiffs: false,
+    invert: false,
+    key: null,
+    listen: false,
+    open: false,
+    port: -1,
+    recurse: false,
+    reporter: env.BMOCHA_REPORTER || 'spec',
+    reporterOptions: Object.create(null),
+    requires: [],
+    retries: 0,
+    slow: 75,
+    ssl: false,
+    sslIgnore: false,
+    sort: false,
+    stream: stdout,
+    timeout: 2000,
+    timeouts: true,
+    uncaught: false,
+    watch: false,
+    windows: process.platform === 'win32'
   };
 
-  const fileArgs = [];
-  const extensions = [];
-  const excludes = [];
-  const reporterOptions = options.reporterOptions;
+  let {
+    excludes,
+    extensions,
+    fileArgs,
+    files,
+    reporterOptions
+  } = options;
 
-  let files = options.files;
-  let recurse = false;
-  let sort = false;
+  const args = getArgs(argv.slice(2));
 
-  const args = getArgs(argv);
-
-  for (let i = 2; i < args.length; i++) {
+  for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
     let next = '';
@@ -637,10 +780,20 @@ function parseArgs() {
       next = args[i + 1];
 
     switch (arg) {
-      case '-V':
-      case '--version': {
-        stdout.write(VERSION + '\n');
-        exit(0);
+      case '-A':
+      case '--async-only': {
+        options.asyncOnly = true;
+        break;
+      }
+
+      case '--allow-uncaught': {
+        options.uncaught = true;
+        break;
+      }
+
+      case '-b':
+      case '--bail': {
+        options.bail = true;
         break;
       }
 
@@ -653,6 +806,210 @@ function parseArgs() {
       case '-C':
       case '--no-colors': {
         options.colors = false;
+        break;
+      }
+
+      case '--config': {
+        throw new Error('Config support is unimplemented.');
+      }
+
+      case '--check-leaks': {
+        options.checkLeaks = true;
+        break;
+      }
+
+      case '--chrome': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.open = true;
+        options.headless = true;
+        options.chrome = next;
+
+        i += 1;
+
+        break;
+      }
+
+      case '--diff': {
+        options.diff = true;
+        break;
+      }
+
+      case '--exclude': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        excludes.push(next);
+
+        i += 1;
+
+        break;
+      }
+
+      case '--exit': {
+        options.exit = true;
+        break;
+      }
+
+      case '--extension':
+      case '--watch-extensions': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        for (let ext of next.split(',')) {
+          if (ext.length === 0 || ext === '.')
+            throw new Error(`Invalid extension for ${arg}.`);
+
+          if (ext[0] !== '.')
+            ext = '.' + ext;
+
+          extensions.push(ext);
+        }
+
+        i += 1;
+
+        break;
+      }
+
+      case '-f':
+      case '--fgrep': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.fgrep = next;
+
+        i += 1;
+
+        break;
+      }
+
+      case '--file': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        fileArgs.push(next);
+
+        i += 1;
+
+        break;
+      }
+
+      case '--forbid-only': {
+        options.forbidOnly = true;
+        break;
+      }
+
+      case '--forbid-pending': {
+        options.forbidPending = true;
+        break;
+      }
+
+      case '--full-trace': {
+        options.fullTrace = true;
+        break;
+      }
+
+      case '-g':
+      case '--grep': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.grep = new RegExp(next);
+
+        i += 1;
+
+        break;
+      }
+
+      case '-G':
+      case '--growl': {
+        throw new Error('Growl support is unimplemented.');
+      }
+
+      case '--global':
+      case '--globals': {
+        options.globals = next.split(',');
+
+        if (options.globals.indexOf('') !== -1)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        i += 1;
+
+        break;
+      }
+
+      case '-H':
+      case '--headless': {
+        options.listen = true;
+        options.open = true;
+        options.headless = true;
+        break;
+      }
+
+      case '-h':
+      case '--help': {
+        stdout.write(HELP + '\n');
+        exit(0);
+        break;
+      }
+
+      case '-i':
+      case '--invert': {
+        options.invert = true;
+        break;
+      }
+
+      case '--inline-diffs': {
+        options.inlineDiffs = true;
+        break;
+      }
+
+      case '--interfaces': {
+        stdout.write(INTERFACES + '\n');
+        exit(0);
+        break;
+      }
+
+      case '-l':
+      case '--listen': {
+        options.listen = true;
+        break;
+      }
+
+      case '-m':
+      case '--cmd': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.open = true;
+        options.cmd = next;
+
+        i += 1;
+
+        break;
+      }
+
+      case '--no-diff': {
+        options.diff = false;
+        break;
+      }
+
+      case '--no-opts': {
+        break;
+      }
+
+      case '--no-timeouts': {
+        options.timeouts = false;
+        break;
+      }
+
+      case '-o':
+      case '--open': {
+        options.listen = true;
+        options.open = true;
         break;
       }
 
@@ -679,6 +1036,32 @@ function parseArgs() {
         break;
       }
 
+      case '--opts': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        i += 1;
+
+        break;
+      }
+
+      case '--package': {
+        throw new Error('Package support is unimplemented.');
+      }
+
+      case '-p':
+      case '--port': {
+        options.port = next >>> 0;
+
+        if (!next || options.port > 0xffff)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        i += 1;
+
+        break;
+      }
+
       case '-R':
       case '--reporter': {
         if (!next)
@@ -688,48 +1071,6 @@ function parseArgs() {
 
         i += 1;
 
-        break;
-      }
-
-      case '-S':
-      case '--sort': {
-        sort = true;
-        break;
-      }
-
-      case '-b':
-      case '--bail': {
-        options.bail = true;
-        break;
-      }
-
-      case '-g':
-      case '--grep': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.grep = new RegExp(next);
-
-        i += 1;
-
-        break;
-      }
-
-      case '-f':
-      case '--fgrep': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.fgrep = next;
-
-        i += 1;
-
-        break;
-      }
-
-      case '-i':
-      case '--invert': {
-        options.invert = true;
         break;
       }
 
@@ -747,10 +1088,76 @@ function parseArgs() {
         break;
       }
 
+      case '--recursive': {
+        options.recurse = true;
+        break;
+      }
+
+      case '--reporters': {
+        stdout.write(REPORTERS + '\n');
+        exit(0);
+        break;
+      }
+
+      case '--retries': {
+        options.retries = next >>> 0;
+        i += 1;
+        break;
+      }
+
       case '-s':
       case '--slow': {
         options.slow = next >>> 0;
         i += 1;
+        break;
+      }
+
+      case '-S':
+      case '--sort': {
+        options.sort = true;
+        break;
+      }
+
+      case '--ssl': {
+        options.listen = true;
+        options.ssl = true;
+        break;
+      }
+
+      case '--cert':
+      case '--ssl-cert': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.ssl = true;
+        options.cert = fs.readFileSync(next);
+
+        i += 1;
+
+        break;
+      }
+
+      case '--ssl-ignore': {
+        options.headless = true;
+        options.open = true;
+        options.listen = true;
+        options.ssl = true;
+        options.sslIgnore = true;
+        break;
+      }
+
+      case '--key':
+      case '--ssl-key': {
+        if (!next)
+          throw new Error(`Invalid option for ${arg}.`);
+
+        options.listen = true;
+        options.ssl = true;
+        options.key = fs.readFileSync(next);
+
+        i += 1;
+
         break;
       }
 
@@ -769,203 +1176,16 @@ function parseArgs() {
         break;
       }
 
-      case '--check-leaks': {
-        options.checkLeaks = true;
-        break;
-      }
-
-      case '--global':
-      case '--globals': {
-        options.globals = next.split(',');
-
-        if (options.globals.indexOf('') !== -1)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        i += 1;
-
-        break;
-      }
-
-      case '--extension': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        if (next[0] !== '.')
-          next = '.' + next;
-
-        extensions.push(next);
-        i += 1;
-
-        break;
-      }
-
-      case '--interfaces': {
-        stdout.write(INTERFACES + '\n');
+      case '-V':
+      case '--version': {
+        stdout.write(VERSION + '\n');
         exit(0);
         break;
       }
 
-      case '--exit': {
-        options.exit = true;
-        break;
-      }
-
-      case '--allow-uncaught': {
-        options.uncaught = true;
-        break;
-      }
-
-      case '--no-timeouts': {
-        options.timeouts = false;
-        break;
-      }
-
-      case '--recursive': {
-        recurse = true;
-        break;
-      }
-
-      case '--reporters': {
-        stdout.write(REPORTERS + '\n');
-        exit(0);
-        break;
-      }
-
-      case '--retries': {
-        options.retries = next >>> 0;
-        i += 1;
-        break;
-      }
-
-      case '--file': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        fileArgs.push(next);
-
-        i += 1;
-
-        break;
-      }
-
-      case '--exclude': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        excludes.push(next);
-
-        i += 1;
-
-        break;
-      }
-
-      case '-h':
-      case '--help': {
-        stdout.write(HELP + '\n');
-        exit(0);
-        break;
-      }
-
-      case '-l':
-      case '--listen': {
-        options.listen = true;
-        break;
-      }
-
-      case '-p':
-      case '--port': {
-        options.port = next >>> 0;
-
-        if (!next || options.port > 0xffff)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.listen = true;
-        i += 1;
-
-        break;
-      }
-
-      case '-o':
-      case '--open': {
-        options.listen = true;
-        options.open = true;
-        break;
-      }
-
-      case '-H':
-      case '--headless': {
-        options.listen = true;
-        options.open = true;
-        options.headless = true;
-        break;
-      }
-
-      case '--chrome': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.listen = true;
-        options.open = true;
-        options.headless = true;
-        options.chrome = next;
-
-        i += 1;
-
-        break;
-      }
-
-      case '--ssl': {
-        options.listen = true;
-        options.ssl = true;
-        break;
-      }
-
-      case '--ssl-ignore': {
-        options.headless = true;
-        options.open = true;
-        options.listen = true;
-        options.ssl = true;
-        options.sslIgnore = true;
-        break;
-      }
-
-      case '--cert': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.listen = true;
-        options.ssl = true;
-        options.cert = fs.readFileSync(next);
-
-        i += 1;
-
-        break;
-      }
-
-      case '--key': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.listen = true;
-        options.ssl = true;
-        options.key = fs.readFileSync(next);
-
-        i += 1;
-
-        break;
-      }
-
-      case '-m':
-      case '--cmd': {
-        if (!next)
-          throw new Error(`Invalid option for ${arg}.`);
-
-        options.listen = true;
-        options.open = true;
-        options.cmd = next;
-
-        i += 1;
-
+      case '-w':
+      case '--watch': {
+        options.watch = true;
         break;
       }
 
@@ -978,6 +1198,9 @@ function parseArgs() {
       default: {
         if (arg.length === 0 || arg[0] === '-')
           throw new Error(`Invalid argument: ${arg}.`);
+
+        if (i === 0 && arg === 'init')
+          throw new Error('"init" is unimplemented.');
 
         options.files.push(arg);
 
@@ -1010,12 +1233,17 @@ function parseArgs() {
     extensions.push('.js');
 
   files = globify(files);
-  files = flatten(files, extensions, recurse);
+  files = flatten(files, extensions, options.recurse);
   files = exclude(files, excludes);
   files = resolvify(files);
 
-  if (sort)
+  if (options.sort)
     files.sort();
+
+  // Note that file args aren't processed
+  // in any extra way other than resolving
+  // them against the current working dir.
+  fileArgs = resolvify(fileArgs);
 
   // Quick and dirty check for file args.
   for (const file of fileArgs) {
@@ -1023,14 +1251,13 @@ function parseArgs() {
       throw new Error(`File not found: ${string(file)}.`);
   }
 
-  // Note that file args aren't processed
-  // in any extra way other than resolving
-  // them against the current working dir.
-  files = resolvify(fileArgs).concat(files);
+  // Final step: file args run first.
+  files = fileArgs.concat(files);
 
   if (files.length === 0)
     throw new Error('No test files found.');
 
+  options.fileArgs = fileArgs;
   options.files = files;
 
   if (typeof reporterOptions.output === 'string') {
@@ -1121,7 +1348,7 @@ function catcher(reject) {
     options = parseArgs();
   } catch (e) {
     if (e.code === 'ENOENT') {
-      const file = relative(cwd, resolve(e.path));
+      const file = relative(cwd, resolve(cwd, e.path));
       stderr.write(`File not found: ${string(file)}.\n`);
       return 1;
     }
@@ -1177,6 +1404,29 @@ function catcher(reject) {
 
   const funcs = options.files.map(file => wrap(file));
   const code = await mocha.run(funcs);
+
+  if (options.watch) {
+    const files = getFiles(cwd, options.extensions);
+
+    stdout.write('\x1b[?25l');
+
+    bindExit(() => {
+      stdout.write('\x1b[?25h');
+    });
+
+    watchFiles(files, async () => {
+      for (const file of files)
+        delete require.cache[file];
+
+      await mocha.abort();
+
+      stdout.write('\n');
+
+      await mocha.run(funcs);
+    });
+
+    return -1;
+  }
 
   if (options.exit)
     exit(code);
