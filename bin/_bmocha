@@ -800,7 +800,7 @@ function getArgs(argv) {
   if (config === null)
     config = findConfig(cwd);
 
-  if (typeof config === 'string' && config !== '/dev/null') {
+  if (typeof config === 'string') {
     const ext = extname(config);
 
     let json = null;
@@ -834,7 +834,7 @@ function getArgs(argv) {
   if (pkg === null && exists(DEFAULT_PKG))
     pkg = DEFAULT_PKG;
 
-  if (typeof pkg === 'string' && pkg !== '/dev/null') {
+  if (typeof pkg === 'string') {
     const data = readJSON(pkg);
 
     if (!data || typeof data !== 'object')
@@ -854,7 +854,7 @@ function getArgs(argv) {
   if (opts === null && exists(DEFAULT_OPTS))
     opts = DEFAULT_OPTS;
 
-  if (typeof opts === 'string' && opts !== '/dev/null') {
+  if (typeof opts === 'string') {
     const text = fs.readFileSync(opts, 'utf8');
     const args = text.replace(/^#.*$/gm, '')
                      .replace(/\\\s/g, '%20')
