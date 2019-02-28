@@ -91,7 +91,7 @@ const nodeOptions = new Set([
   '--zero-fill-buffers',
   '--debug-arraybuffer-allocations',
   '--security-reverts',
-  '--completion-bash',
+  // '--completion-bash',
   // '-h', '--help',
   // '-v', '--version',
   // '--v8-options',
