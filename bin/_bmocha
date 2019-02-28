@@ -6,8 +6,6 @@
  * https://github.com/bcoin-org/bmocha
  */
 
-/* eslint no-control-regex: "off" */
-
 'use strict';
 
 const assert = require('assert');
