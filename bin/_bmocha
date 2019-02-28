@@ -711,7 +711,9 @@ function getArgs(argv) {
   assert(Array.isArray(argv));
 
   const args = [];
+  const out = [];
 
+  // Normalize process arg vector.
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
@@ -742,8 +744,8 @@ function getArgs(argv) {
     }
   }
 
-  const out = [];
-
+  // Quickly parse through args
+  // to find config files.
   let config = null;
   let opts = null;
   let pkg = null;
@@ -780,6 +782,7 @@ function getArgs(argv) {
     }
   }
 
+  // Parse main config (rc) file.
   if (config === null)
     config = findConfig(cwd);
 
@@ -813,6 +816,7 @@ function getArgs(argv) {
     }
   }
 
+  // Parse package.json "mocha" field.
   if (pkg === null && exists(DEFAULT_PKG))
     pkg = DEFAULT_PKG;
 
@@ -832,6 +836,7 @@ function getArgs(argv) {
     }
   }
 
+  // Parse legacy test/mocha.opts file.
   if (opts === null && exists(DEFAULT_OPTS))
     opts = DEFAULT_OPTS;
 
@@ -849,6 +854,7 @@ function getArgs(argv) {
     }
   }
 
+  // Args go on last (higher precedence).
   out.push(...args);
 
   return out;
@@ -1504,10 +1510,10 @@ function catcher(reject) {
     });
 
     watchFiles(files, async () => {
+      await mocha.abort();
+
       for (const file of files)
         delete require.cache[file];
-
-      await mocha.abort();
 
       stdout.write('\n');
 
