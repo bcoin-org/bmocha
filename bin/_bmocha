@@ -137,6 +137,7 @@ const DEFAULT_OPTS = './test/mocha.opts';
 const DEFAULT_PKG = './package.json';
 const BIN = resolve(__dirname, '..', 'bin');
 const LIB = resolve(__dirname, '..', 'lib');
+const IN_MOCHA = basename(cwd) === 'bmocha';
 
 /*
  * Helpers
@@ -339,9 +340,11 @@ function getFiles(root, extensions, out = []) {
 
     // Ignore everything in
     // our own lib and bin.
-    if (file.startsWith(BIN)
-        || file.startsWith(LIB)) {
-      continue;
+    if (IN_MOCHA) {
+      if (file.startsWith(BIN)
+          || file.startsWith(LIB)) {
+        continue;
+      }
     }
 
     out.push(file);
