@@ -61,6 +61,8 @@ const HELP = `
     --config <path>         path to config file (default: nearest rc file)
     --check-leaks           check for global variable leaks (default: false)
     --chrome <path>         chrome binary to use for headless mode
+    --delay                 delay initial execution of root suite
+                            (unimplemented) (default: false)
     --diff                  show diff on failure (default: true)
     --exclude <file>        a file to ignore
     --exit                  force shutdown of the event loop after test run
@@ -935,6 +937,7 @@ function parseArgs() {
     cmd: '',
     colors: Boolean(stdout.isTTY),
     console: false,
+    delay: false,
     diff: true,
     excludes: [],
     exit: false,
@@ -1057,6 +1060,13 @@ function parseArgs() {
         break;
       }
 
+      case '--delay': {
+        if (value)
+          throw new Error('Delay support is not implemented.');
+        options.delay = value;
+        break;
+      }
+
       case '--diff': {
         options.diff = value;
         break;
@@ -1121,7 +1131,7 @@ function parseArgs() {
       case '-G':
       case '--growl': {
         if (value)
-          throw new Error('Growl support is unimplemented.');
+          throw new Error('Growl support is not implemented.');
         break;
       }
 
@@ -1358,7 +1368,7 @@ function parseArgs() {
           throw new Error(`Invalid argument: ${args[i]}.`);
 
         if (i === 0 && arg === 'init')
-          throw new Error('"init" is unimplemented.');
+          throw new Error('"init" is not implemented.');
 
         files.push(arg);
 
