@@ -86,6 +86,19 @@ function setupCmd() {
             hostname: '192.168.33.1',
           },
         };
+      } else if (which('dwm') && which('xsetroot') && process.env.DISPLAY) {
+        cmd = {
+          type: 'Linux-DWM',
+          pkg: 'xsetroot',
+          msg: '-name',
+          sticky: '',
+          icon: '',
+          display: process.env.DISPLAY,
+          priority: {
+            cmd: '',
+            range: []
+          }
+        };
       } else {
         cmd = {
           type: 'Linux',
@@ -269,6 +282,28 @@ function growl(msg, opts, callback) {
       }
       break;
     }
+    case 'Linux-DWM': {
+      const out = [];
+
+      args.push('-display');
+      args.push(cmd.display);
+      args.push(cmd.msg);
+
+      if (options.name)
+        out.push('[' + options.name + ']');
+
+      if (options.title)
+        out.push(options.title + ':');
+
+      out.push(msg);
+
+      if (options.image)
+        out.push('(' + path.basename(options.image) + ')');
+
+      args.push(out.join(' '));
+
+      break;
+    }
     case 'Linux-Growl':
       args.push(cmd.msg);
       args.push(msg.replace(/\\n/g, '\n'));
@@ -318,10 +353,13 @@ function growl(msg, opts, callback) {
 
   stderr += `[${timestamp}][node-growl] : Executed command '${cmdToExec}' with arguments '${args}'\n[stderr] : `;
 
-  child.on('error', (err) => {
-    console.error('An error occured.', err);
-    error = err;
-  });
+  for (const stream of [child, child.stdin, child.stdout, child.stderr]) {
+    stream.on('error', (err) => {
+      if (typeof fn !== 'function')
+        console.error('An error occured.', err);
+      error = err;
+    });
+  }
 
   child.stdout.on('data', (data) => {
     stdout += data;
