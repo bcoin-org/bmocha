@@ -54,6 +54,7 @@ const HELP = `
 
     -A, --async-only        require all tests to use a callback or promise
                             (default: false)
+    --allow-multiple        allow multiple promise resolutions
     --allow-uncaught        enable uncaught errors to propagate (default: false)
     -b, --bail              bail after first test failure (default: false)
     -c, --colors            force enabling of colors
@@ -928,6 +929,7 @@ function getArgs(argv) {
 function parseArgs() {
   const options = {
     __proto__: null,
+    allowMultiple: false,
     asyncOnly: false,
     bail: false,
     cert: null,
@@ -1012,6 +1014,11 @@ function parseArgs() {
     }
 
     switch (arg) {
+      case '--allow-multiple': {
+        options.allowMultiple = value;
+        break;
+      }
+
       case '-A':
       case '--async-only': {
         options.asyncOnly = value;
@@ -1502,7 +1509,7 @@ function parseArgs() {
  * Error Handling
  */
 
-function catcher(reject) {
+function catcher(reject, allowMultiple) {
   const onError = (error) => {
     const err = errorify(error);
 
@@ -1535,12 +1542,16 @@ function catcher(reject) {
 
   on('uncaughtException', onError);
   on('unhandledRejection', onRejection);
-  on('multipleResolves', onMultiple);
+
+  if (!allowMultiple)
+    on('multipleResolves', onMultiple);
 
   return () => {
     off('uncaughtException', onError);
     off('unhandledRejection', onRejection);
-    off('multipleResolves', onMultiple);
+
+    if (!allowMultiple)
+      off('multipleResolves', onMultiple);
   };
 }
 

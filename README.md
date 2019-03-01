@@ -17,6 +17,7 @@ $ bmocha --help
 
     -A, --async-only        require all tests to use a callback or promise
                             (default: false)
+    --allow-multiple        allow multiple promise resolutions
     --allow-uncaught        enable uncaught errors to propagate (default: false)
     -b, --bail              bail after first test failure (default: false)
     -c, --colors            force enabling of colors
