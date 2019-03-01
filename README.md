@@ -75,6 +75,8 @@ $ bmocha --help
     --ssl-ignore             ignore certificate errors (headless)
                              (default: false)
     --ssl-key <path>         path to ssl key file
+    --swallow                swallow errors post-completion to mimic mocha
+                             (default: true)
     -t, --timeout <ms>       set test-case timeout in milliseconds
                              (default: 2000)
     --timeouts               enables timeouts (default: true)
