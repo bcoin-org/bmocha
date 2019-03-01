@@ -1433,6 +1433,7 @@ function parseArgs() {
       options.port = (options.open || options.headless) ? 0 : 8080;
   }
 
+  // Sanity checks.
   if (options.ssl) {
     if (!options.key)
       throw new Error('SSL specified with no provided key.');
@@ -1441,16 +1442,31 @@ function parseArgs() {
       throw new Error('SSL specified with no provided cert.');
   }
 
-  if (files.length === 0) {
-    if (exists('test'))
-      files.push('test');
-    else if (exists('test.js'))
-      files.push('test.js');
-  }
-
+  // Set extensions to .js by default.
   if (extensions.length === 0)
     extensions.push('.js');
 
+  // Find default files if they exist.
+  if (files.length === 0) {
+    if (exists('test')) {
+      files.push('test');
+    } else {
+      // Historically, mocha only looked
+      // for `test.js` due to the behavior
+      // documented in globify above. We
+      // can do better by checking for all
+      // of the user's file extensions.
+      for (const ext of extensions) {
+        const name = `test${ext}`;
+        if (exists(name)) {
+          files.push(name);
+          break;
+        }
+      }
+    }
+  }
+
+  // Process all files.
   files = globify(files);
   files = flatten(files, extensions, options.recurse);
   files = exclude(files, excludes);
@@ -1479,6 +1495,7 @@ function parseArgs() {
   options.fileArgs = fileArgs;
   options.files = files;
 
+  // Optional file stream for reporter.
   if (typeof reporterOptions.output === 'string') {
     const {output} = reporterOptions;
     const path = output.replace(/^~\//, `${os.homedir()}/`);
