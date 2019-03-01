@@ -75,7 +75,7 @@ const HELP = `
     --forbid-pending        fail if pending test(s) encountered (default: false)
     --full-trace            display full stack traces (default: false)
     -g, --grep <pattern>    only run tests matching <pattern>
-    -G, --growl             enable growl notifications (noop) (default: false)
+    -G, --growl             enable growl notifications (default: false)
     --globals <names>       allow the given comma-delimited global <names>
     -H, --headless          run tests in headless chrome (default: false)
     -h, --help              output usage information
