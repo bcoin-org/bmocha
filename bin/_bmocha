@@ -1006,6 +1006,7 @@ function parseArgs() {
     sslIgnore: false,
     sort: false,
     stream: stdout,
+    swallow: true,
     timeout: 2000,
     timeouts: true,
     uncaught: false,
