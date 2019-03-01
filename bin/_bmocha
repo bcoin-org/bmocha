@@ -1683,8 +1683,17 @@ function catcher(reject, allowMultiple) {
 
   module.paths.push(cwd, join(cwd, 'node_modules'));
 
-  for (const file of options.requires)
-    require(file);
+  for (const file of options.requires) {
+    try {
+      require(file);
+    } catch (e) {
+      if (e.code === 'MODULE_NOT_FOUND')
+        exception(e.message);
+      else
+        exception(e);
+      return;
+    }
+  }
 
   const funcs = options.files.map(wrapRequire);
   const code = await mocha.run(funcs);
