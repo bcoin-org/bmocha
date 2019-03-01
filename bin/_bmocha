@@ -207,10 +207,9 @@ function findExt(name, extensions) {
     return name;
 
   // Historically, mocha only looked
-  // for `.js` files due to the behavior
-  // documented in globify below. We
-  // can do better by checking for all
-  // of the user's file extensions.
+  // for `.js` files. We can do better
+  // by checking for all of the user's
+  // file extensions.
   for (const ext of extensions) {
     const file = `${name}${ext}`;
 
@@ -304,19 +303,8 @@ function globify(files) {
       continue;
     }
 
-    if (!exists(file)) {
-      // To mimic mocha more closely, we could do:
-      //
-      //   const name = findExt(file, extensions);
-      //
-      //   if (name) {
-      //     out.push(name);
-      //     continue;
-      //   }
-      //
-      // But this seems messy and non-explicit.
+    if (!exists(file))
       throw new Error(`File not found: ${string(file)}.`);
-    }
 
     out.push(file);
   }
@@ -406,27 +394,6 @@ function exclude(files, excludes) {
 function resolvify(files) {
   assert(Array.isArray(files));
   return files.map(file => resolve(cwd, file));
-}
-
-// eslint-disable-next-line
-function requirify(requires, extensions) {
-  assert(Array.isArray(requires));
-  assert(Array.isArray(extensions));
-
-  const out = [];
-
-  for (const name of requires) {
-    const file = findExt(name, extensions);
-
-    if (file) {
-      out.push(resolve(cwd, file));
-      continue;
-    }
-
-    out.push(name);
-  }
-
-  return out;
 }
 
 /*
@@ -1600,9 +1567,6 @@ function parseArgs() {
 
   if (files.length === 0)
     throw new Error('No test files found.');
-
-  // Mocha does weird stuff for require resolution.
-  // requires = requirify(requires, extensions);
 
   // Extra extensions could be gotten as
   // side-effect of globbing. Add them to
