@@ -1766,6 +1766,14 @@ function catcher(reject, allowMultiple) {
         return -1;
       }
     }
+
+    // Add any new extensions to be watched.
+    if (options.watch) {
+      for (const ext of Object.keys(require.extensions)) {
+        if (options.extensions.indexOf(ext) === -1)
+          options.extensions.push(ext);
+      }
+    }
   }
 
   const funcs = options.files.map(wrapRequire);
