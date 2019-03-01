@@ -15,70 +15,74 @@ $ bmocha --help
 
   Options:
 
-    -A, --async-only        require all tests to use a callback or promise
-                            (default: false)
-    --allow-multiple        allow multiple promise resolutions
-    --allow-uncaught        enable uncaught errors to propagate (default: false)
-    -b, --bail              bail after first test failure (default: false)
-    -B, --backend <value>   set the NODE_BACKEND environment variable
-    -c, --colors            force enabling of colors
-    -C, --no-colors         force disabling of colors
-    --config <path>         path to config file (default: nearest rc file)
-    --check-leaks           check for global variable leaks (default: false)
-    --chrome <path>         chrome binary to use for headless mode
-    --delay                 delay initial execution of root suite
-                            (default: false)
-    --diff                  show diff on failure (default: true)
-    -e, --env <name=val>    set environment variable
-    --exclude <file>        a file to ignore
-    --exit                  force shutdown of the event loop after test run
-                            (default: false)
-    --extension <ext>       file extension(s) to load and/or watch (default: js)
-    -f, --fgrep <string>    only run tests containing <string>
-    --file <file>           include a file to be ran during the suite
-    --forbid-only           fail if exclusive test(s) encountered
-                            (default: false)
-    --forbid-pending        fail if pending test(s) encountered (default: false)
-    --full-trace            display full stack traces (default: false)
-    -g, --grep <pattern>    only run tests matching <pattern>
-    -G, --growl             enable growl notifications (default: false)
-    --globals <names>       allow the given comma-delimited global <names>
-    -H, --headless          run tests in headless chrome (default: false)
-    -h, --help              output usage information
-    -i, --invert            inverts --grep and --fgrep matches (default: false)
-    --inline-diffs          display actual/expected differences inline (noop)
-                            (default: false)
-    --interfaces            display available interfaces
-    -l, --listen            serve client-side test files (requires browserify)
-                            (default: false)
-    -m, --cmd <cmd>         set browser command (default: $BROWSER)
-    -o, --open              open browser after serving (default: false)
-    -O, --reporter-options  reporter-specific options
-    --opts <path>           path to "mocha.opts" (default: ./test/mocha.opts)
-    --package <path>        path to package.json for config
-                            (default: ./package.json)
-    -p, --port <port>       port to listen on (default: 8080)
-    -R, --reporter <name>   specify the reporter to use (default: spec)
-    -r, --require <name>    require the given module
-    --recursive             include sub directories (default: false)
-    --reporters             display available reporters
-    --retries <times>       set numbers of time to retry a failed test case
-                            (default: 0)
-    -s, --slow <ms>         "slow" test threshold in milliseconds (default: 75)
-    -S, --sort              sort test files (default: false)
-    --ssl                   use ssl to listen (default: false)
-    --ssl-cert <path>       path to ssl cert file
-    --ssl-ignore            ignore certificate errors (headless)
-                            (default: false)
-    --ssl-key <path>        path to ssl key file
-    -t, --timeout <ms>      set test-case timeout in milliseconds
-                            (default: 2000)
-    --timeouts              enables timeouts (default: true)
-    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
-    -V, --version           output the version number
-    -w, --watch             watch files in the current working directory
-                            (default: false)
-    -z, --console           use console in browser (default: false)
+    -A, --async-only         require all tests to use a callback or promise
+                             (default: false)
+    --allow-multiple         allow multiple promise resolutions (default: false)
+    --allow-uncaught         enable uncaught errors to propagate
+                             (default: false)
+    -b, --bail               bail after first test failure (default: false)
+    -B, --backend <value>    set the NODE_BACKEND environment variable
+    -c, --colors             force enabling of colors
+    -C, --no-colors          force disabling of colors
+    --compilers <ext>:<mod>  use the given module(s) to compile files
+    --config <path>          path to config file (default: nearest rc file)
+    --check-leaks            check for global variable leaks (default: false)
+    --chrome <path>          chrome binary to use for headless mode
+    --delay                  delay initial execution of root suite
+                             (default: false)
+    --diff                   show diff on failure (default: true)
+    -e, --env <name=val>     set environment variable
+    --exclude <file>         a file to ignore
+    --exit                   force shutdown of the event loop after test run
+                             (default: false)
+    --extension <ext>        file extension(s) to load and/or watch
+                             (default: js)
+    -f, --fgrep <string>     only run tests containing <string>
+    --file <file>            include a file to be ran during the suite
+    --forbid-only            fail if exclusive test(s) encountered
+                             (default: false)
+    --forbid-pending         fail if pending test(s) encountered
+                             (default: false)
+    --full-trace             display full stack traces (default: false)
+    -g, --grep <pattern>     only run tests matching <pattern>
+    -G, --growl              enable growl notifications (default: false)
+    --globals <names>        allow the given comma-delimited global <names>
+    -H, --headless           run tests in headless chrome (default: false)
+    -h, --help               output usage information
+    -i, --invert             inverts --grep and --fgrep matches (default: false)
+    --inline-diffs           display actual/expected differences inline (noop)
+                             (default: false)
+    --interfaces             display available interfaces
+    -l, --listen             serve client-side test files (requires browserify)
+                             (default: false)
+    -m, --cmd <cmd>          set browser command (default: $BROWSER)
+    -o, --open               open browser after serving (default: false)
+    -O, --reporter-options   reporter-specific options
+    --opts <path>            path to "mocha.opts" (default: ./test/mocha.opts)
+    --package <path>         path to package.json for config
+                             (default: ./package.json)
+    -p, --port <port>        port to listen on (default: 8080)
+    -R, --reporter <name>    specify the reporter to use (default: spec)
+    -r, --require <name>     require the given module
+    --recursive              include sub directories (default: false)
+    --reporters              display available reporters
+    --retries <times>        set numbers of time to retry a failed test case
+                             (default: 0)
+    -s, --slow <ms>          "slow" test threshold in milliseconds (default: 75)
+    -S, --sort               sort test files (default: false)
+    --ssl                    use ssl to listen (default: false)
+    --ssl-cert <path>        path to ssl cert file
+    --ssl-ignore             ignore certificate errors (headless)
+                             (default: false)
+    --ssl-key <path>         path to ssl key file
+    -t, --timeout <ms>       set test-case timeout in milliseconds
+                             (default: 2000)
+    --timeouts               enables timeouts (default: true)
+    -u, --ui <name>          specify user-interface (bdd) (default: bdd)
+    -V, --version            output the version number
+    -w, --watch              watch files in the current working directory
+                             (default: false)
+    -z, --console            use console in browser (default: false)
 ```
 
 ### Example

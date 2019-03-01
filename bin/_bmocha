@@ -52,70 +52,74 @@ const HELP = `
 
   Options:
 
-    -A, --async-only        require all tests to use a callback or promise
-                            (default: false)
-    --allow-multiple        allow multiple promise resolutions
-    --allow-uncaught        enable uncaught errors to propagate (default: false)
-    -b, --bail              bail after first test failure (default: false)
-    -B, --backend <value>   set the NODE_BACKEND environment variable
-    -c, --colors            force enabling of colors
-    -C, --no-colors         force disabling of colors
-    --config <path>         path to config file (default: nearest rc file)
-    --check-leaks           check for global variable leaks (default: false)
-    --chrome <path>         chrome binary to use for headless mode
-    --delay                 delay initial execution of root suite
-                            (default: false)
-    --diff                  show diff on failure (default: true)
-    -e, --env <name=val>    set environment variable
-    --exclude <file>        a file to ignore
-    --exit                  force shutdown of the event loop after test run
-                            (default: false)
-    --extension <ext>       file extension(s) to load and/or watch (default: js)
-    -f, --fgrep <string>    only run tests containing <string>
-    --file <file>           include a file to be ran during the suite
-    --forbid-only           fail if exclusive test(s) encountered
-                            (default: false)
-    --forbid-pending        fail if pending test(s) encountered (default: false)
-    --full-trace            display full stack traces (default: false)
-    -g, --grep <pattern>    only run tests matching <pattern>
-    -G, --growl             enable growl notifications (default: false)
-    --globals <names>       allow the given comma-delimited global <names>
-    -H, --headless          run tests in headless chrome (default: false)
-    -h, --help              output usage information
-    -i, --invert            inverts --grep and --fgrep matches (default: false)
-    --inline-diffs          display actual/expected differences inline (noop)
-                            (default: false)
-    --interfaces            display available interfaces
-    -l, --listen            serve client-side test files (requires browserify)
-                            (default: false)
-    -m, --cmd <cmd>         set browser command (default: $BROWSER)
-    -o, --open              open browser after serving (default: false)
-    -O, --reporter-options  reporter-specific options
-    --opts <path>           path to "mocha.opts" (default: ./test/mocha.opts)
-    --package <path>        path to package.json for config
-                            (default: ./package.json)
-    -p, --port <port>       port to listen on (default: 8080)
-    -R, --reporter <name>   specify the reporter to use (default: spec)
-    -r, --require <name>    require the given module
-    --recursive             include sub directories (default: false)
-    --reporters             display available reporters
-    --retries <times>       set numbers of time to retry a failed test case
-                            (default: 0)
-    -s, --slow <ms>         "slow" test threshold in milliseconds (default: 75)
-    -S, --sort              sort test files (default: false)
-    --ssl                   use ssl to listen (default: false)
-    --ssl-cert <path>       path to ssl cert file
-    --ssl-ignore            ignore certificate errors (headless)
-                            (default: false)
-    --ssl-key <path>        path to ssl key file
-    -t, --timeout <ms>      set test-case timeout in milliseconds
-                            (default: 2000)
-    --timeouts              enables timeouts (default: true)
-    -u, --ui <name>         specify user-interface (bdd) (default: bdd)
-    -V, --version           output the version number
-    -w, --watch             watch files in the current working directory
-                            (default: false)
-    -z, --console           use console in browser (default: false)
+    -A, --async-only         require all tests to use a callback or promise
+                             (default: false)
+    --allow-multiple         allow multiple promise resolutions (default: false)
+    --allow-uncaught         enable uncaught errors to propagate
+                             (default: false)
+    -b, --bail               bail after first test failure (default: false)
+    -B, --backend <value>    set the NODE_BACKEND environment variable
+    -c, --colors             force enabling of colors
+    -C, --no-colors          force disabling of colors
+    --compilers <ext>:<mod>  use the given module(s) to compile files
+    --config <path>          path to config file (default: nearest rc file)
+    --check-leaks            check for global variable leaks (default: false)
+    --chrome <path>          chrome binary to use for headless mode
+    --delay                  delay initial execution of root suite
+                             (default: false)
+    --diff                   show diff on failure (default: true)
+    -e, --env <name=val>     set environment variable
+    --exclude <file>         a file to ignore
+    --exit                   force shutdown of the event loop after test run
+                             (default: false)
+    --extension <ext>        file extension(s) to load and/or watch
+                             (default: js)
+    -f, --fgrep <string>     only run tests containing <string>
+    --file <file>            include a file to be ran during the suite
+    --forbid-only            fail if exclusive test(s) encountered
+                             (default: false)
+    --forbid-pending         fail if pending test(s) encountered
+                             (default: false)
+    --full-trace             display full stack traces (default: false)
+    -g, --grep <pattern>     only run tests matching <pattern>
+    -G, --growl              enable growl notifications (default: false)
+    --globals <names>        allow the given comma-delimited global <names>
+    -H, --headless           run tests in headless chrome (default: false)
+    -h, --help               output usage information
+    -i, --invert             inverts --grep and --fgrep matches (default: false)
+    --inline-diffs           display actual/expected differences inline (noop)
+                             (default: false)
+    --interfaces             display available interfaces
+    -l, --listen             serve client-side test files (requires browserify)
+                             (default: false)
+    -m, --cmd <cmd>          set browser command (default: $BROWSER)
+    -o, --open               open browser after serving (default: false)
+    -O, --reporter-options   reporter-specific options
+    --opts <path>            path to "mocha.opts" (default: ./test/mocha.opts)
+    --package <path>         path to package.json for config
+                             (default: ./package.json)
+    -p, --port <port>        port to listen on (default: 8080)
+    -R, --reporter <name>    specify the reporter to use (default: spec)
+    -r, --require <name>     require the given module
+    --recursive              include sub directories (default: false)
+    --reporters              display available reporters
+    --retries <times>        set numbers of time to retry a failed test case
+                             (default: 0)
+    -s, --slow <ms>          "slow" test threshold in milliseconds (default: 75)
+    -S, --sort               sort test files (default: false)
+    --ssl                    use ssl to listen (default: false)
+    --ssl-cert <path>        path to ssl cert file
+    --ssl-ignore             ignore certificate errors (headless)
+                             (default: false)
+    --ssl-key <path>         path to ssl key file
+    -t, --timeout <ms>       set test-case timeout in milliseconds
+                             (default: 2000)
+    --timeouts               enables timeouts (default: true)
+    -u, --ui <name>          specify user-interface (bdd) (default: bdd)
+    -V, --version            output the version number
+    -w, --watch              watch files in the current working directory
+                             (default: false)
+    -z, --console            use console in browser (default: false)
 `;
 
 const INTERFACES = `
@@ -182,6 +186,55 @@ function exists(file) {
       return false;
     throw e;
   }
+}
+
+function findFile(files) {
+  assert(Array.isArray(files));
+
+  for (const file of files) {
+    if (exists(file))
+      return file;
+  }
+
+  return null;
+}
+
+function findExt(name, extensions) {
+  assert(typeof name === 'string');
+  assert(Array.isArray(extensions));
+
+  if (exists(name))
+    return name;
+
+  // Historically, mocha only looked
+  // for `.js` files due to the behavior
+  // documented in globify below. We
+  // can do better by checking for all
+  // of the user's file extensions.
+  for (const ext of extensions) {
+    const file = `${name}${ext}`;
+
+    if (exists(file))
+      return file;
+  }
+
+  return null;
+}
+
+function mergeExts(extensions, files) {
+  assert(Array.isArray(extensions));
+  assert(Array.isArray(files));
+
+  const out = new Set(extensions);
+
+  for (const file of files) {
+    const ext = extname(file);
+
+    if (ext.length > 0)
+      out.add(ext);
+  }
+
+  return [...out];
 }
 
 function mkdirp(path, mode) {
@@ -254,13 +307,14 @@ function globify(files) {
     if (!exists(file)) {
       // To mimic mocha more closely, we could do:
       //
-      //   if (exists(file + '.js')) {
-      //     out.push(file + '.js');
+      //   const name = findExt(file, extensions);
+      //
+      //   if (name) {
+      //     out.push(name);
       //     continue;
       //   }
       //
       // But this seems messy and non-explicit.
-      // It also doesn't account for custom extensions.
       throw new Error(`File not found: ${string(file)}.`);
     }
 
@@ -352,6 +406,26 @@ function exclude(files, excludes) {
 function resolvify(files) {
   assert(Array.isArray(files));
   return files.map(file => resolve(cwd, file));
+}
+
+function requirify(requires, extensions) {
+  assert(Array.isArray(requires));
+  assert(Array.isArray(extensions));
+
+  const out = [];
+
+  for (const name of requires) {
+    const file = findExt(name, extensions);
+
+    if (file) {
+      out.push(resolve(cwd, file));
+      continue;
+    }
+
+    out.push(name);
+  }
+
+  return out;
 }
 
 /*
@@ -484,17 +558,6 @@ function navigate(url, cmd) {
     return spawn(name, [`--app=${url}`]);
 
   return spawn(name, [url]);
-}
-
-function findFile(files) {
-  assert(Array.isArray(files));
-
-  for (const file of files) {
-    if (exists(file))
-      return file;
-  }
-
-  return null;
 }
 
 function findChrome() {
@@ -985,7 +1048,8 @@ function parseArgs() {
     extensions,
     fileArgs,
     files,
-    reporterOptions
+    reporterOptions,
+    requires
   } = options;
 
   let i = 0;
@@ -1071,6 +1135,34 @@ function parseArgs() {
 
       case '--chrome': {
         options.chrome = value ? next() : null;
+        break;
+      }
+
+      case '--compilers': {
+        for (const pair of next().split(',')) {
+          const index = pair.indexOf(':');
+
+          if (index === -1)
+            throw new Error(`Invalid compiler: ${pair}.`);
+
+          let [ext, mod] = [
+            pair.substring(0, index),
+            pair.substring(index + 1)
+          ];
+
+          if (ext.length === 0 || ext === '.')
+            throw new Error(`Invalid compiler extension: ${ext}.`);
+
+          if (mod.length === 0)
+            throw new Error(`Invalid compiler name: ${mod}.`);
+
+          if (ext[0] !== '.')
+            ext = '.' + ext;
+
+          requires.push(mod);
+          extensions.push(ext);
+        }
+
         break;
       }
 
@@ -1308,17 +1400,10 @@ function parseArgs() {
 
       case '-r':
       case '--require': {
-        if (!value) {
-          options.requires.length = 0;
-          break;
-        }
-
-        let file = next();
-
-        if (exists(file) || exists(`${file}.js`))
-          file = resolve(cwd, file);
-
-        options.requires.push(file);
+        if (value)
+          requires.push(next());
+        else
+          requires.length = 0;
 
         break;
       }
@@ -1478,24 +1563,15 @@ function parseArgs() {
   if (extensions.length === 0)
     extensions.push('.js');
 
-  // Find default files if they exist.
+  // Make sure we have no duplicates.
+  extensions = [...new Set(extensions)];
+
+  // Find default file/dir if it exists.
   if (files.length === 0) {
-    if (exists('test')) {
-      files.push('test');
-    } else {
-      // Historically, mocha only looked
-      // for `test.js` due to the behavior
-      // documented in globify above. We
-      // can do better by checking for all
-      // of the user's file extensions.
-      for (const ext of extensions) {
-        const name = `test${ext}`;
-        if (exists(name)) {
-          files.push(name);
-          break;
-        }
-      }
-    }
+    const file = findExt('test', extensions);
+
+    if (file)
+      files.push(file);
   }
 
   // Process all files.
@@ -1524,8 +1600,23 @@ function parseArgs() {
   if (files.length === 0)
     throw new Error('No test files found.');
 
+  // Mocha does weird stuff for require resolution.
+  requires = requirify(requires, extensions);
+
+  // Extra extensions could be gotten as
+  // side-effect of globbing. Add them to
+  // the extensions array. Note that mocha
+  // doesn't do this. Now that we're done
+  // with file processing, these are
+  // essentially just for watching files.
+  if (options.watch)
+    extensions = mergeExts(extensions, files);
+
+  // Update options.
+  options.extensions = extensions;
   options.fileArgs = fileArgs;
   options.files = files;
+  options.requires = requires;
 
   // Optional file stream for reporter.
   if (typeof reporterOptions.output === 'string') {
