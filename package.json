@@ -1,9 +1,10 @@
 {
   "name": "bmocha",
   "version": "1.0.1",
-  "description": "Secure implementation of Mocha",
+  "description": "Alternative implementation of mocha",
   "keywords": [
     "mocha",
+    "mochajs",
     "test",
     "testing"
   ],
