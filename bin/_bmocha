@@ -1582,8 +1582,15 @@ function parseArgs() {
   // doesn't do this. Now that we're done
   // with file processing, these are
   // essentially just for watching files.
-  if (options.watch)
+  if (options.watch) {
     extensions = mergeExts(extensions, files);
+
+    if (extensions.indexOf('.json') === -1)
+      extensions.push('.json');
+
+    if (extensions.indexOf('.node') === -1)
+      extensions.push('.node');
+  }
 
   // Update options.
   options.extensions = extensions;
