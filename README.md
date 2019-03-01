@@ -20,6 +20,7 @@ $ bmocha --help
     --allow-multiple        allow multiple promise resolutions
     --allow-uncaught        enable uncaught errors to propagate (default: false)
     -b, --bail              bail after first test failure (default: false)
+    -B, --backend <value>   set the NODE_BACKEND environment variable
     -c, --colors            force enabling of colors
     -C, --no-colors         force disabling of colors
     --config <path>         path to config file (default: nearest rc file)
@@ -28,6 +29,7 @@ $ bmocha --help
     --delay                 delay initial execution of root suite
                             (default: false)
     --diff                  show diff on failure (default: true)
+    -e, --env <name=val>    set environment variable
     --exclude <file>        a file to ignore
     --exit                  force shutdown of the event loop after test run
                             (default: false)
