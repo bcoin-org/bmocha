@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /*!
- * bmocha - minimal mocha implementation
- * Copyright (c) 2018, Christopher Jeffrey (MIT License).
+ * bmocha - alternative mocha implementation
+ * Copyright (c) 2018-2019, Christopher Jeffrey (MIT License).
  * https://github.com/bcoin-org/bmocha
  */
 
