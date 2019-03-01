@@ -75,8 +75,7 @@ const HELP = `
     --forbid-pending        fail if pending test(s) encountered (default: false)
     --full-trace            display full stack traces (default: false)
     -g, --grep <pattern>    only run tests matching <pattern>
-    -G, --growl             enable growl notifications (unimplemented)
-                            (default: false)
+    -G, --growl             enable growl notifications (noop) (default: false)
     --globals <names>       allow the given comma-delimited global <names>
     -H, --headless          run tests in headless chrome (default: false)
     -h, --help              output usage information
@@ -951,6 +950,7 @@ function parseArgs() {
     global: true,
     globals: [],
     grep: null,
+    growl: false,
     headless: false,
     invert: false,
     key: null,
@@ -1128,8 +1128,7 @@ function parseArgs() {
 
       case '-G':
       case '--growl': {
-        if (value)
-          throw new Error('Growl support is not implemented.');
+        options.growl = value;
         break;
       }
 
