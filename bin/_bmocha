@@ -1551,6 +1551,9 @@ function catcher(reject) {
 
   const mocha = new Mocha(options);
 
+  if (options.growl)
+    mocha.notify = require('../lib/notify');
+
   if (!options.uncaught)
     mocha.catcher = catcher;
 
