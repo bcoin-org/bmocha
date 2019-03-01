@@ -1053,10 +1053,7 @@ function parseArgs() {
       }
 
       case '--chrome': {
-        options.listen = true;
-        options.open = true;
-        options.headless = true;
-        options.chrome = next();
+        options.chrome = value ? next() : null;
         break;
       }
 
@@ -1071,7 +1068,11 @@ function parseArgs() {
       }
 
       case '--exclude': {
-        excludes.push(next());
+        if (value)
+          excludes.push(next());
+        else
+          excludes.length = 0;
+
         break;
       }
 
@@ -1082,6 +1083,11 @@ function parseArgs() {
 
       case '--extension':
       case '--watch-extensions': {
+        if (!value) {
+          extensions.length = 0;
+          break;
+        }
+
         for (let ext of next().split(',')) {
           if (ext.length === 0 || ext === '.')
             throw new Error(`Invalid file extension: ${ext}.`);
@@ -1091,6 +1097,7 @@ function parseArgs() {
 
           extensions.push(ext);
         }
+
         break;
       }
 
@@ -1101,7 +1108,11 @@ function parseArgs() {
       }
 
       case '--file': {
-        fileArgs.push(next());
+        if (value)
+          fileArgs.push(next());
+        else
+          fileArgs.length = 0;
+
         break;
       }
 
@@ -1134,6 +1145,11 @@ function parseArgs() {
 
       case '--global':
       case '--globals': {
+        if (!value) {
+          options.globals.length = 0;
+          break;
+        }
+
         const globals = next().split(',');
 
         if (globals.indexOf('') !== -1)
@@ -1146,8 +1162,6 @@ function parseArgs() {
 
       case '-H':
       case '--headless': {
-        options.listen = value;
-        options.open = value;
         options.headless = value;
         break;
       }
@@ -1185,15 +1199,12 @@ function parseArgs() {
 
       case '-m':
       case '--cmd': {
-        options.listen = true;
-        options.open = true;
-        options.cmd = next();
+        options.cmd = value ? next() : '';
         break;
       }
 
       case '-o':
       case '--open': {
-        options.listen = value;
         options.open = value;
         break;
       }
@@ -1201,6 +1212,11 @@ function parseArgs() {
       case '-O':
       case '--reporter-option':
       case '--reporter-options': {
+        if (!value) {
+          reporterOptions = Object.create(null);
+          break;
+        }
+
         for (const opt of next().split(',')) {
           const parts = opt.split('=');
 
@@ -1230,25 +1246,34 @@ function parseArgs() {
 
       case '-p':
       case '--port': {
+        if (!value) {
+          options.port = -1;
+          break;
+        }
+
         const port = next() >>> 0;
 
         if (port > 0xffff)
           throw new Error(`Invalid port: ${port}.`);
 
         options.port = port;
-        options.listen = true;
 
         break;
       }
 
       case '-R':
       case '--reporter': {
-        options.reporter = next();
+        options.reporter = value ? next() : 'spec';
         break;
       }
 
       case '-r':
       case '--require': {
+        if (!value) {
+          options.requires.length = 0;
+          break;
+        }
+
         let file = next();
 
         if (exists(file) || exists(`${file}.js`))
@@ -1278,7 +1303,7 @@ function parseArgs() {
 
       case '-s':
       case '--slow': {
-        options.slow = next() >>> 0;
+        options.slow = value ? next() >>> 0 : 75;
         break;
       }
 
@@ -1289,33 +1314,24 @@ function parseArgs() {
       }
 
       case '--ssl': {
-        options.listen = value;
         options.ssl = value;
         break;
       }
 
       case '--cert':
       case '--ssl-cert': {
-        options.listen = true;
-        options.ssl = true;
-        options.cert = fs.readFileSync(next());
+        options.cert = value ? fs.readFileSync(next()) : null;
         break;
       }
 
       case '--ssl-ignore': {
-        options.headless = value;
-        options.open = value;
-        options.listen = value;
-        options.ssl = value;
         options.sslIgnore = value;
         break;
       }
 
       case '--key':
       case '--ssl-key': {
-        options.listen = true;
-        options.ssl = true;
-        options.key = fs.readFileSync(next());
+        options.key = value ? fs.readFileSync(next()) : null;
         break;
       }
 
@@ -1332,7 +1348,7 @@ function parseArgs() {
 
       case '-u':
       case '--ui': {
-        const ui = next();
+        const ui = value ? next() : 'bdd';
 
         if (ui !== 'bdd')
           throw new Error(`Invalid interface: ${ui}.`);
@@ -1374,9 +1390,40 @@ function parseArgs() {
     }
   }
 
+  // `--cmd` implies `--open`.
+  if (options.cmd)
+    options.open = true;
+
+  // `--chrome` implies `--headless`.
+  if (options.chrome)
+    options.headless = true;
+
+  // `--ssl-cert` and `--ssl-key` both imply `--ssl`.
+  if (options.cert || options.key)
+    options.ssl = true;
+
+  // `--ssl-ignore` implies `--headless` and `--ssl`.
+  if (options.sslIgnore) {
+    options.headless = true;
+    options.ssl = true;
+  }
+
+  // `--port` implies `--listen`.
+  // `--ssl` implies `--listen`.
+  // `--open` implies `--listen`.
+  // `--headless` implies `--listen`.
+  if (options.port !== -1
+      || options.ssl
+      || options.open
+      || options.headless) {
+    options.listen = true;
+  }
+
+  // `--listen` implies `--port=8080` if no "ui" options are chosen.
+  // `--listen` implies `--port=$RANDOM` if "ui" options are chosen.
   if (options.listen) {
     if (options.port === -1)
-      options.port = options.open ? 0 : 8080;
+      options.port = (options.open || options.headless) ? 0 : 8080;
   }
 
   if (options.ssl) {
