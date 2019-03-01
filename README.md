@@ -25,7 +25,7 @@ $ bmocha --help
     --check-leaks           check for global variable leaks (default: false)
     --chrome <path>         chrome binary to use for headless mode
     --delay                 delay initial execution of root suite
-                            (unimplemented) (default: false)
+                            (default: false)
     --diff                  show diff on failure (default: true)
     --exclude <file>        a file to ignore
     --exit                  force shutdown of the event loop after test run
