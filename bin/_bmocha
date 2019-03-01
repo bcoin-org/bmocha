@@ -20,6 +20,7 @@ const {
   dirname,
   extname,
   join,
+  normalize,
   relative,
   resolve
 } = path;
@@ -38,12 +39,6 @@ const cwd = process.cwd();
 const {argv, env, stdout, stderr, exit} = process;
 const on = process.on.bind(process);
 const off = process.removeListener.bind(process);
-
-const parts = process.version.split(/[^\d]/);
-const version = (0
-  + (parts[1] & 0xff) * 0x10000
-  + (parts[2] & 0xff) * 0x00100
-  + (parts[3] & 0xff) * 0x00001);
 
 /*
  * Constants
@@ -139,10 +134,10 @@ const REPORTERS = `
     xunit - xunit reporter
 `;
 
-const DEFAULT_OPTS = './test/mocha.opts';
-const DEFAULT_PKG = './package.json';
-const BIN = resolve(__dirname, '..', 'bin');
-const LIB = resolve(__dirname, '..', 'lib');
+const DEFAULT_OPTS = resolve(cwd, 'test', 'mocha.opts');
+const DEFAULT_PKG = resolve(cwd, 'package.json');
+const BIN_PATH = resolve(__dirname, '..', 'bin');
+const LIB_PATH = resolve(__dirname, '..', 'lib');
 const IN_MOCHA = basename(cwd) === 'bmocha';
 
 /*
@@ -154,7 +149,7 @@ function string(str) {
   return JSON.stringify(str);
 }
 
-function wrap(file) {
+function wrapRequire(file) {
   assert(typeof file === 'string');
 
   return () => {
@@ -179,11 +174,55 @@ function exists(file) {
     fs.statSync(file);
     return true;
   } catch (e) {
-    if (e.code !== 'ENOENT')
-      throw e;
-    return false;
+    if (e.code === 'ENOENT')
+      return false;
+    throw e;
   }
 }
+
+function mkdirp(path, mode) {
+  if (mode == null)
+    mode = 0o777;
+
+  assert(typeof path === 'string');
+  assert((mode >>> 0) === mode);
+
+  const paths = [];
+
+  let dir = normalize(path);
+
+  for (;;) {
+    paths.push(dir);
+
+    const next = dirname(dir);
+
+    if (next === dir)
+      break;
+
+    dir = next;
+  }
+
+  paths.reverse();
+
+  for (const path of paths) {
+    if (!exists(path))
+      fs.mkdirSync(path, mode);
+  }
+}
+
+function exception(err, code) {
+  if (err && err.stack)
+    err = err.stack;
+
+  code >>>= 0;
+
+  stderr.write(err + '\n');
+  exit(code || 1);
+}
+
+/*
+ * Test File Traversal
+ */
 
 function globify(files) {
   assert(Array.isArray(files));
@@ -311,6 +350,10 @@ function resolvify(files) {
   return files.map(file => resolve(cwd, file));
 }
 
+/*
+ * Watching Helpers
+ */
+
 function getFiles(root, extensions, out = []) {
   assert(typeof root === 'string');
   assert(Array.isArray(extensions));
@@ -343,10 +386,10 @@ function getFiles(root, extensions, out = []) {
     }
 
     // Ignore everything in
-    // our own lib and bin.
+    // our own bin and lib.
     if (IN_MOCHA) {
-      if (file.startsWith(BIN)
-          || file.startsWith(LIB)) {
+      if (file.startsWith(BIN_PATH)
+          || file.startsWith(LIB_PATH)) {
         continue;
       }
     }
@@ -363,20 +406,27 @@ function watchFiles(files, callback) {
 
   const options = { interval: 100 };
 
-  const cb = async (cur, prev) => {
-    if (prev.mtime < cur.mtime) {
-      try {
-        await callback();
-      } catch (e) {
-        stderr.write(e.stack + '\n');
-        exit(1);
-      }
+  const cb = async (current, previous) => {
+    const prev = previous.mtime.getTime();
+    const cur = current.mtime.getTime();
+
+    if (prev >= cur)
+      return;
+
+    try {
+      await callback();
+    } catch (e) {
+      exception(e);
     }
   };
 
   for (const file of files)
     fs.watchFile(file, options, cb);
 }
+
+/*
+ * Process Helpers
+ */
 
 function spawn(file, args, shell = false) {
   const cp = require('child_process');
@@ -509,14 +559,7 @@ function bindExit(handler) {
   const onSighup = () => exit(1 | 0x80);
   const onSigint = () => exit(2 | 0x80);
   const onSigterm = () => exit(15 | 0x80);
-
-  const onError = (err) => {
-    if (err && err.stack)
-      err = err.stack;
-
-    stderr.write(err + '\n');
-    exit(1);
-  };
+  const onError = err => exception(err);
 
   process.once('exit', handler);
 
@@ -588,10 +631,9 @@ function runHeadless(url, chrome, extra = []) {
 
   const onError = (err) => {
     if (err.code === 'ENOENT')
-      stderr.write(`Chrome not found: ${err.path}.\n`);
+      exception(`Chrome not found: ${err.path}.`);
     else
-      stderr.write(err.stack + '\n');
-    exit(1);
+      exception(err);
   };
 
   const onExit = (code, signal) => {
@@ -642,10 +684,14 @@ function runHeadless(url, chrome, extra = []) {
   return [[file, ...args], ps];
 }
 
+/*
+ * Config Parsing
+ */
+
 function findConfig(root) {
   assert(typeof root === 'string');
 
-  let dir = root;
+  let dir = normalize(root);
 
   for (;;) {
     for (const name of ['.mocharc.js',
@@ -713,6 +759,10 @@ function readJSON(file) {
   const text = fs.readFileSync(file, 'utf8');
   return JSON.parse(text);
 }
+
+/*
+ * Argument Parsing
+ */
 
 function getArgs(argv) {
   assert(Array.isArray(argv));
@@ -1372,12 +1422,8 @@ function parseArgs() {
     const {output} = reporterOptions;
     const path = output.replace(/^~\//, `${os.homedir()}/`);
     const file = resolve(cwd, path);
-    const dir = dirname(file);
 
-    if (version >= 0x0a0c00)  {
-      // Recursive mkdir was added in node v10.12.0.
-      fs.mkdirSync(dir, { mode: 0o755, recursive: true });
-    }
+    mkdirp(dirname(file), 0o755);
 
     const stream = fs.createWriteStream(file);
 
@@ -1388,8 +1434,7 @@ function parseArgs() {
       if (err.message === 'write after end')
         return;
 
-      stderr.write(err.stack + '\n');
-      exit(1);
+      exception(err);
     });
 
     options.stream = stream;
@@ -1512,7 +1557,7 @@ function catcher(reject) {
   for (const file of options.requires)
     require(file);
 
-  const funcs = options.files.map(file => wrap(file));
+  const funcs = options.files.map(wrapRequire);
   const code = await mocha.run(funcs);
 
   if (options.watch) {
@@ -1548,6 +1593,5 @@ function catcher(reject) {
     on('exit', () => exit(code));
   }
 }).catch((err) => {
-  stderr.write(err.stack + '\n');
-  exit(1);
+  exception(err);
 });
