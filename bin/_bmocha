@@ -408,6 +408,7 @@ function resolvify(files) {
   return files.map(file => resolve(cwd, file));
 }
 
+// eslint-disable-next-line
 function requirify(requires, extensions) {
   assert(Array.isArray(requires));
   assert(Array.isArray(extensions));
@@ -1601,7 +1602,7 @@ function parseArgs() {
     throw new Error('No test files found.');
 
   // Mocha does weird stuff for require resolution.
-  requires = requirify(requires, extensions);
+  // requires = requirify(requires, extensions);
 
   // Extra extensions could be gotten as
   // side-effect of globbing. Add them to
