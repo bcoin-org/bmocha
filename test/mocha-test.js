@@ -148,6 +148,8 @@ describe('Mocha', function() {
         assert.strictEqual(0, 1);
       });
 
+      it('should skip once more');
+
       it('should not skip', function() {
         assert.strictEqual(1, 1);
         called += 1;
