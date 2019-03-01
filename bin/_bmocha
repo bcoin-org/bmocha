@@ -12,7 +12,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const glob = require('../vendor/glob');
+const glob = require('../vendor/glob.js');
 const {Mocha, inspect, errorify} = require('../lib/bmocha.js');
 
 const {
@@ -1671,7 +1671,7 @@ function catcher(reject, allowMultiple) {
   const mocha = new Mocha(options);
 
   if (options.growl)
-    mocha.notify = require('../lib/notify');
+    mocha.notify = require('../lib/notify.js');
 
   if (!options.uncaught)
     mocha.catcher = catcher;
@@ -1681,17 +1681,19 @@ function catcher(reject, allowMultiple) {
   else
     mocha.exit = exit;
 
-  module.paths.push(cwd, join(cwd, 'node_modules'));
+  if (options.requires.length > 0) {
+    const globalRequire = require('../lib/require.js');
 
-  for (const file of options.requires) {
-    try {
-      require(file);
-    } catch (e) {
-      if (e.code === 'MODULE_NOT_FOUND')
-        exception(e.message);
-      else
-        exception(e);
-      return;
+    for (const file of options.requires) {
+      try {
+        globalRequire(file);
+      } catch (e) {
+        if (e.code === 'MODULE_NOT_FOUND')
+          exception(e.message);
+        else
+          exception(e);
+        return -1;
+      }
     }
   }
 
