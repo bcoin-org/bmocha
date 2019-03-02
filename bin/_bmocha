@@ -1521,10 +1521,8 @@ function parseArgs() {
 
   // `--listen` implies `--port=8080` if no "ui" options are chosen.
   // `--listen` implies `--port=$RANDOM` if "ui" options are chosen.
-  if (options.listen) {
-    if (options.port === -1)
-      options.port = (options.open || options.headless) ? 0 : 8080;
-  }
+  if (options.listen && options.port === -1)
+    options.port = (options.open || options.headless) ? 0 : 8080;
 
   // Sanity checks.
   if (options.ssl) {
