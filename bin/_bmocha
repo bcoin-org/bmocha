@@ -372,7 +372,7 @@ function walk(files, extensions, recurse, depth, out) {
     if (extensions.length > 0) {
       const ext = extname(file);
 
-      if (extensions.indexOf(ext) === -1)
+      if (!extensions.includes(ext))
         continue;
     }
 
@@ -429,7 +429,7 @@ function getFiles(root, extensions, out = []) {
     if (extensions.length > 0) {
       const ext = extname(name);
 
-      if (extensions.indexOf(ext) === -1)
+      if (!extensions.includes(ext))
         continue;
     }
 
@@ -500,7 +500,7 @@ function navigate(url, cmd) {
 
   // Any OS:
   if (cmd) {
-    if (cmd.indexOf('%s') !== -1) {
+    if (cmd.includes('%s')) {
       cmd = cmd.replace(/%s/g, url);
       return spawn(cmd, [], true);
     }
@@ -1254,7 +1254,7 @@ function parseArgs() {
 
         const globals = next().split(',');
 
-        if (globals.indexOf('') !== -1)
+        if (globals.includes(''))
           throw new Error(`Invalid globals: ${args[i]}.`);
 
         options.globals = globals;
@@ -1583,10 +1583,10 @@ function parseArgs() {
   if (options.watch) {
     extensions = mergeExts(extensions, files);
 
-    if (extensions.indexOf('.json') === -1)
+    if (!extensions.includes('.json'))
       extensions.push('.json');
 
-    if (extensions.indexOf('.node') === -1)
+    if (!extensions.includes('.node'))
       extensions.push('.node');
   }
 
@@ -1768,7 +1768,7 @@ function catcher(reject, allowMultiple) {
     // Add any new extensions to be watched.
     if (options.watch) {
       for (const ext of Object.keys(require.extensions)) {
-        if (options.extensions.indexOf(ext) === -1)
+        if (!options.extensions.includes(ext))
           options.extensions.push(ext);
       }
     }
