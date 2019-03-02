@@ -15,13 +15,13 @@ $ bmocha --help
 
   Options:
 
-    -A, --async-only         require all tests to use a callback or promise
-                             (default: false)
     --allow-multiple         allow multiple promise resolutions (default: false)
     --allow-uncaught         enable uncaught errors to propagate
                              (default: false)
-    -b, --bail               bail after first test failure (default: false)
+    -A, --async-only         require all tests to use a callback or promise
+                             (default: false)
     -B, --backend <value>    set the NODE_BACKEND environment variable
+    -b, --bail               bail after first test failure (default: false)
     -c, --colors             force enabling of colors
     -C, --no-colors          force disabling of colors
     --compilers <ext>:<mod>  use the given module(s) to compile files
