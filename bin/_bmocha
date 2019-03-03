@@ -289,7 +289,6 @@ function globify(files) {
 
   const options = {
     cwd,
-    nosort: true,
     silent: true
   };
 
@@ -1557,6 +1556,9 @@ function parseArgs() {
   if (options.sort)
     files.sort();
 
+  if (files.length === 0)
+    throw new Error('No test files found.');
+
   // Note that file args aren't processed
   // in any extra way other than resolving
   // them against the current working dir.
@@ -1570,9 +1572,6 @@ function parseArgs() {
 
   // Final step: file args run first.
   files = fileArgs.concat(files);
-
-  if (files.length === 0)
-    throw new Error('No test files found.');
 
   // Extra extensions could be gotten as
   // side-effect of globbing. Add them to
