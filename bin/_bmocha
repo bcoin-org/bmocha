@@ -965,6 +965,7 @@ function parseArgs() {
   const options = {
     __proto__: null,
     allowMultiple: false,
+    allowUncaught: false,
     asyncOnly: false,
     backend: null,
     bail: false,
@@ -1009,7 +1010,6 @@ function parseArgs() {
     swallow: true,
     timeout: 2000,
     timeouts: true,
-    uncaught: false,
     watch: false,
     windows: process.platform === 'win32'
   };
@@ -1065,7 +1065,7 @@ function parseArgs() {
       }
 
       case '--allow-uncaught': {
-        options.uncaught = value;
+        options.allowUncaught = value;
         break;
       }
 
@@ -1594,7 +1594,6 @@ function parseArgs() {
   options.extensions = extensions;
   options.fileArgs = fileArgs;
   options.files = files;
-  options.requires = requires;
 
   // Optional file stream for reporter.
   if (typeof reporterOptions.output === 'string') {
@@ -1742,7 +1741,7 @@ function catcher(reject, allowMultiple) {
   if (options.growl)
     mocha.notify = require('../lib/notify.js');
 
-  if (!options.uncaught)
+  if (!options.allowUncaught)
     mocha.catcher = catcher;
 
   if (options.watch)
@@ -1766,7 +1765,7 @@ function catcher(reject, allowMultiple) {
     }
 
     // Add any new extensions to be watched.
-    if (options.watch) {
+    if (options.watch && require.extensions) {
       for (const ext of Object.keys(require.extensions)) {
         if (!options.extensions.includes(ext))
           options.extensions.push(ext);
