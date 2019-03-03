@@ -12,6 +12,7 @@ $ bmocha --help
 
   Usage: bmocha [options] [files]
          bmocha debug [options] [files]
+         bmocha init <path> [options] [files]
 
   Options:
 

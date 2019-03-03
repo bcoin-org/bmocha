@@ -13,7 +13,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const glob = require('../vendor/glob.js');
-const {Mocha, inspect, errorify} = require('../lib/bmocha.js');
+const bmocha = require('../lib/bmocha.js');
 
 const {
   basename,
@@ -35,6 +35,13 @@ const {
   RegExp
 } = global;
 
+const {
+  errorify,
+  inspect,
+  Mocha,
+  style
+} = bmocha;
+
 const cwd = process.cwd();
 const {argv, env, stdout, stderr, exit} = process;
 const on = process.on.bind(process);
@@ -49,6 +56,7 @@ const VERSION = '1.0.1';
 const HELP = `
   Usage: bmocha [options] [files]
          bmocha debug [options] [files]
+         bmocha init <path> [options] [files]
 
   Options:
 
@@ -991,6 +999,7 @@ function parseArgs() {
     grep: null,
     growl: false,
     headless: false,
+    init: null,
     invert: false,
     key: null,
     listen: false,
@@ -1479,8 +1488,10 @@ function parseArgs() {
         if (arg.length === 0 || arg[0] === '-')
           throw new Error(`Invalid argument: ${args[i]}.`);
 
-        if (i === 0 && arg === 'init')
-          throw new Error('"init" is not implemented.');
+        if (i === 0 && arg === 'init') {
+          options.init = resolve(cwd, next());
+          break;
+        }
 
         files.push(arg);
 
@@ -1540,7 +1551,7 @@ function parseArgs() {
   extensions = [...new Set(extensions)];
 
   // Find default file/dir if it exists.
-  if (files.length === 0) {
+  if (!options.init && files.length === 0) {
     const file = findExt('test', extensions);
 
     if (file)
@@ -1556,7 +1567,7 @@ function parseArgs() {
   if (options.sort)
     files.sort();
 
-  if (files.length === 0)
+  if (!options.init && files.length === 0)
     throw new Error('No test files found.');
 
   // Note that file args aren't processed
@@ -1688,6 +1699,22 @@ function catcher(reject, allowMultiple) {
     }
     stderr.write(e.message + '\n');
     return 1;
+  }
+
+  if (options.init) {
+    const browserify = require('../lib/server/browserify');
+    const root = options.init;
+    const opt = browserify.convert(options);
+    const code = await browserify.compile('bmocha.js', opt);
+    const html = await browserify.template('bmocha.html', style);
+
+    mkdirp(root, 0o755);
+
+    fs.writeFileSync(join(root, 'bmocha.js'), code);
+    fs.writeFileSync(join(root, 'index.html'), html);
+    fs.writeFileSync(join(root, 'tests.js'), '');
+
+    return 0;
   }
 
   if (options.listen) {
