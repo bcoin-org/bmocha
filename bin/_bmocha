@@ -29,7 +29,6 @@ const {
   Array,
   Boolean,
   Error,
-  Math,
   Object,
   process,
   RegExp
@@ -655,12 +654,10 @@ function runHeadless(url, chrome, extra = []) {
   if (!file)
     throw new Error('Could not find chrome binary.');
 
-  const port = 1024 + Math.floor(Math.random() * (0x10000 - 1024));
-
   const args = [
     '--headless',
     '--disable-gpu',
-    `--remote-debugging-port=${port}`,
+    '--remote-debugging-port=0',
     ...extra,
     url
   ];
@@ -1522,10 +1519,12 @@ function parseArgs() {
   // `--ssl` implies `--listen`.
   // `--open` implies `--listen`.
   // `--headless` implies `--listen`.
+  // `--console` implies `--listen`.
   if (options.port !== -1
       || options.ssl
       || options.open
-      || options.headless) {
+      || options.headless
+      || options.console) {
     options.listen = true;
   }
 
@@ -1535,12 +1534,45 @@ function parseArgs() {
     options.port = (options.open || options.headless) ? 0 : 8080;
 
   // Sanity checks.
+  if (options.fgrep && options.grep)
+    throw new Error('Cannot use --fgrep with --grep.');
+
+  if (options.headless) {
+    if (options.console)
+      throw new Error('Cannot use --console with --headless.');
+  }
+
+  if (options.init) {
+    if (options.backend)
+      throw new Error('Cannot use --backend with init.');
+
+    if (options.console)
+      throw new Error('Cannot use --console with init.');
+
+    if (Object.keys(options.env).length > 0)
+      throw new Error('Cannot use --env with init.');
+
+    if (options.exit)
+      throw new Error('Cannot use --exit with init.');
+
+    if (options.listen)
+      throw new Error('Cannot use --listen with init.');
+
+    if (options.watch)
+      throw new Error('Cannot use --watch with init.');
+  }
+
+  if (options.listen) {
+    if (options.watch)
+      throw new Error('Cannot use --watch with --listen.');
+  }
+
   if (options.ssl) {
     if (!options.key)
-      throw new Error('SSL specified with no provided key.');
+      throw new Error('--ssl specified with no provided key.');
 
     if (!options.cert)
-      throw new Error('SSL specified with no provided cert.');
+      throw new Error('--ssl specified with no provided cert.');
   }
 
   // Set extensions to .js by default.
