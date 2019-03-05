@@ -286,7 +286,7 @@ function main() {
 
   ps.on('error', (err) => {
     if (err.code === 'ENOENT') {
-      process.stderr.write(`File not found: ${err.path}.\n`);
+      process.stderr.write(`File not found: ${JSON.stringify(err.path)}.\n`);
       process.exit(1);
     }
 

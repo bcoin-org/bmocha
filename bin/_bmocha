@@ -672,7 +672,7 @@ function runHeadless(url, chrome, extra = []) {
 
   const onError = (err) => {
     if (err.code === 'ENOENT')
-      exception(`Chrome not found: ${err.path}.`);
+      exception(`Chrome not found: ${string(err.path)}.`);
     else
       exception(err);
   };
