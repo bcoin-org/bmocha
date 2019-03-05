@@ -1763,7 +1763,7 @@ function catcher(reject, allowMultiple) {
       stderr.write(err.stack + '\n');
     });
 
-    if (options.ssl && options.sslIgnore)
+    if (options.sslIgnore)
       chromeOptions.push('--ignore-certificate-errors');
 
     if (options.headless) {
