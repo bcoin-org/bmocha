@@ -655,7 +655,7 @@ function runHeadless(url, chrome, extra = []) {
   if (!file)
     throw new Error('Could not find chrome binary.');
 
-  const port = 1000 + Math.floor(Math.random() * (0x10000 - 1000));
+  const port = 1024 + Math.floor(Math.random() * (0x10000 - 1024));
 
   const args = [
     '--headless',
