@@ -22,7 +22,7 @@ const DEBUG = version >= 0x080000 ? 'debug' : 'inspect';
 /*
  * Options
  * https://github.com/nodejs/node/blob/master/src/node_options.cc
- * Last update: 376735345088d4b37e0e289c2eb7720419ed37ee
+ * Last update: b2abda9ba0b7b8bfbbf14e990ea86434f3f20de3
  */
 
 const nodeOptions = new Set([
@@ -42,6 +42,8 @@ const nodeOptions = new Set([
   '--experimental-vm-modules',
   '--experimental-worker',
   '--experimental-report',
+  '--expose-internals',
+  '--frozen-intrinsics',
   '--http-parser',
   '--loader',
   '--no-deprecation',
@@ -105,10 +107,12 @@ const nodeOptions = new Set([
 ]);
 
 const valueOptions = new Set([
-  // Debug Options (optional values)
-  // '--debug-port',
+  // Debug Options (some have optional values)
+  // '--debug',
+  '--debug-port',
   // '--debug-brk',
-  // '--inspect-port',
+  // '--inspect',
+  '--inspect-port',
   // '--inspect-brk',
   // '--inspect-brk-node',
 
