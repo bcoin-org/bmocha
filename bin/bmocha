@@ -188,6 +188,8 @@ function main() {
   const execArgvLen = execArgv.length;
   const argv = [join(__dirname, '_bmocha')];
 
+  let node = file;
+
   for (let i = 2; i < process.argv.length; i++) {
     let arg = process.argv[i];
 
@@ -229,16 +231,24 @@ function main() {
       continue;
     }
 
+    if (arg.startsWith('--node=') && arg.length > 7) {
+      node = arg.substring(7);
+      continue;
+    }
+
+    if (arg === '--node' && i + 1 < process.argv.length) {
+      node = process.argv[++i];
+      continue;
+    }
+
     if (arg.startsWith(`--${INSPECT}`))
       argv.push('--no-timeouts');
 
     if (isNodeOption(arg)) {
       execArgv.push(arg);
 
-      if (isValueOption(arg) && i + 1 < process.argv.length) {
-        execArgv.push(process.argv[i + 1]);
-        i += 1;
-      }
+      if (isValueOption(arg) && i + 1 < process.argv.length)
+        execArgv.push(process.argv[++i]);
 
       continue;
     }
@@ -254,7 +264,7 @@ function main() {
   // All pointless if we didn't have any
   // node options. Use the same process
   // to speed things up.
-  if (execArgv.length === execArgvLen) {
+  if (node === file && execArgv.length === execArgvLen) {
     require('./_bmocha');
     return;
   }
@@ -262,7 +272,7 @@ function main() {
   const {spawn} = require('child_process');
   const args = execArgv.concat(argv);
 
-  const ps = spawn(file, args, {
+  const ps = spawn(node, args, {
     stdio: 'inherit'
   });
 
@@ -273,6 +283,16 @@ function main() {
   process.on('SIGHUP', onSighup);
   process.on('SIGINT', onSigint);
   process.on('SIGTERM', onSigterm);
+
+  ps.on('error', (err) => {
+    if (err.code === 'ENOENT') {
+      process.stderr.write(`File not found: ${err.path}.\n`);
+      process.exit(1);
+    }
+
+    process.stderr.write(`Child Process Error: ${err.message}\n`);
+    process.exit(1);
+  });
 
   ps.on('exit', (code, signal) => {
     process.removeListener('SIGHUP', onSighup);
