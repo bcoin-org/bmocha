@@ -57,6 +57,11 @@ const HELP = `
          bmocha debug [options] [files]
          bmocha init <path> [options] [files]
 
+  Commands:
+
+    debug                    start bmocha with the node.js debugger enabled
+    init <path>              initialize a client-side bmocha setup at <path>
+
   Options:
 
     --allow-multiple         allow multiple promise resolutions (default: false)
@@ -75,7 +80,7 @@ const HELP = `
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
-    -e, --env <name=val>     set environment variable
+    -e, --env <name=val>     comma-separated list of environment variables
     --exclude <file>         a file to ignore
     --exit                   force shutdown of the event loop after test run
                              (default: false)
@@ -116,7 +121,7 @@ const HELP = `
     -S, --sort               sort test files (default: false)
     --ssl                    use ssl to listen (default: false)
     --ssl-cert <path>        path to ssl cert file
-    --ssl-ignore             ignore certificate errors (headless)
+    --ssl-ignore             ignore certificate errors (headless mode only)
                              (default: false)
     --ssl-key <path>         path to ssl key file
     --swallow                swallow errors post-completion to mimic mocha
@@ -131,6 +136,10 @@ const HELP = `
     --why                    display why node continues to run after the suite
                              has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
+
+  Environment Variables:
+
+    BMOCHA_OPTIONS           space-separated list of command-line options
 `;
 
 const INTERFACES = `
@@ -768,24 +777,43 @@ function parseConfig(json) {
     const value = json[key];
 
     switch (typeof value) {
-      case 'boolean':
+      case 'boolean': {
         args.push(value ? `--${key}` : `--no-${key}`);
         break;
+      }
+
       case 'number':
-      case 'string':
+      case 'string': {
         args.push(`--${key}`);
         args.push(String(value));
         break;
-      case 'object':
+      }
+
+      case 'object': {
         if (Array.isArray(value)) {
-          for (const item of value) {
-            args.push(`--${key}`);
-            args.push(String(item));
-          }
+          const arg = [];
+
+          args.push(`--${key}`);
+
+          for (const item of value)
+            arg.push(String(item));
+
+          args.push(arg.join(','));
         } else if (value instanceof RegExp) {
           args.push(value.source);
+        } else if (value != null) {
+          const arg = [];
+
+          args.push(`--${key}`);
+
+          for (const k of Object.keys(value))
+            arg.push(`${k}=${value[k]}`);
+
+          args.push(arg.join(','));
         }
+
         break;
+      }
     }
   }
 
@@ -1204,13 +1232,13 @@ function parseArgs() {
         for (const pair of next().split(',')) {
           const parts = pair.split('=');
 
-          if (parts.length > 2)
+          if (parts.length > 2 || parts[0].length === 0)
             throw new Error(`Invalid environment variable: ${pair}.`);
 
           if (parts.length === 2)
-            options.env[parts[0]] = parts[1];
+            options.env[parts[0]] = parts[1].length ? parts[1] : null;
           else
-            options.env[parts[0]] = null;
+            options.env[parts[0]] = '1';
         }
 
         break;
@@ -1369,7 +1397,7 @@ function parseArgs() {
         for (const opt of next().split(',')) {
           const parts = opt.split('=');
 
-          if (parts.length > 2 || parts.length === 0)
+          if (parts.length > 2 || parts[0].length === 0)
             throw new Error(`Invalid reporter option: ${opt}.`);
 
           if (parts.length === 2)
@@ -1600,6 +1628,9 @@ function parseArgs() {
 
     if (options.console)
       throw new Error('Cannot use --console with init.');
+
+    if (options.delay)
+      throw new Error('Cannot use --delay with init.');
 
     if (Object.keys(options.env).length > 0)
       throw new Error('Cannot use --env with init.');

@@ -14,6 +14,11 @@ $ bmocha --help
          bmocha debug [options] [files]
          bmocha init <path> [options] [files]
 
+  Commands:
+
+    debug                    start bmocha with the node.js debugger enabled
+    init <path>              initialize a client-side bmocha setup at <path>
+
   Options:
 
     --allow-multiple         allow multiple promise resolutions (default: false)
@@ -32,7 +37,7 @@ $ bmocha --help
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
-    -e, --env <name=val>     set environment variable
+    -e, --env <name=val>     comma-separated list of environment variables
     --exclude <file>         a file to ignore
     --exit                   force shutdown of the event loop after test run
                              (default: false)
@@ -73,7 +78,7 @@ $ bmocha --help
     -S, --sort               sort test files (default: false)
     --ssl                    use ssl to listen (default: false)
     --ssl-cert <path>        path to ssl cert file
-    --ssl-ignore             ignore certificate errors (headless)
+    --ssl-ignore             ignore certificate errors (headless mode only)
                              (default: false)
     --ssl-key <path>         path to ssl key file
     --swallow                swallow errors post-completion to mimic mocha
@@ -88,6 +93,10 @@ $ bmocha --help
     --why                    display why node continues to run after the suite
                              has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
+
+  Environment Variables:
+
+    BMOCHA_OPTIONS           space-separated list of command-line options
 ```
 
 ### Example

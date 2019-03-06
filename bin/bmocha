@@ -189,9 +189,17 @@ function main() {
   const argv = [join(__dirname, '_bmocha')];
 
   let node = file;
+  let ended = false;
 
   for (let i = 2; i < process.argv.length; i++) {
     let arg = process.argv[i];
+
+    // Allow `--` to terminate arguments.
+    if (ended || arg === '--') {
+      argv.push(arg);
+      ended = true;
+      continue;
+    }
 
     // Primarily here to maintain
     // compatibility with mocha.
