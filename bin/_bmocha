@@ -128,6 +128,8 @@ const HELP = `
     -V, --version            output the version number
     -w, --watch              watch files in the current working directory
                              (default: false)
+    --why                    display why node continues to run after the suite
+                             has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
 `;
 
@@ -1016,6 +1018,7 @@ function parseArgs() {
     timeout: 2000,
     timeouts: true,
     watch: false,
+    why: false,
     windows: process.platform === 'win32'
   };
 
@@ -1475,6 +1478,11 @@ function parseArgs() {
         break;
       }
 
+      case '--why': {
+        options.why = value;
+        break;
+      }
+
       case '-z':
       case '--console': {
         options.console = value;
@@ -1560,11 +1568,17 @@ function parseArgs() {
 
     if (options.watch)
       throw new Error('Cannot use --watch with init.');
+
+    if (options.why)
+      throw new Error('Cannot use --why with init.');
   }
 
   if (options.listen) {
     if (options.watch)
       throw new Error('Cannot use --watch with --listen.');
+
+    if (options.why)
+      throw new Error('Cannot use --why with --listen.');
   }
 
   if (options.ssl) {

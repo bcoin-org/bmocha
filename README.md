@@ -85,6 +85,8 @@ $ bmocha --help
     -V, --version            output the version number
     -w, --watch              watch files in the current working directory
                              (default: false)
+    --why                    display why node continues to run after the suite
+                             has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
 ```
 
