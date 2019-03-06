@@ -807,13 +807,11 @@ function readJSON(file) {
  * Argument Parsing
  */
 
-function getArgs(argv) {
+function normalizeArgs(argv) {
   assert(Array.isArray(argv));
 
   const args = [];
-  const out = [];
 
-  // Normalize process arg vector.
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
@@ -844,6 +842,38 @@ function getArgs(argv) {
     }
   }
 
+  return args;
+}
+
+function getArgs(argv) {
+  assert(Array.isArray(argv));
+
+  const args = [];
+  const out = [];
+
+  // Parse BMOCHA_OPTIONS environment variable.
+  if (env.BMOCHA_OPTIONS) {
+    const text = env.BMOCHA_OPTIONS;
+    const parts = text.replace(/\\\s/g, '%20')
+                      .split(/\s+/);
+    const items = [];
+
+    for (const arg of parts) {
+      if (arg.length === 0)
+        continue;
+
+      if (arg === '--')
+        throw new Error(`Invalid argument: ${arg}.`);
+
+      items.push(arg.replace(/%20/g, ' '));
+    }
+
+    args.push(...normalizeArgs(items));
+  }
+
+  // Normalize process arg vector.
+  args.push(...normalizeArgs(argv));
+
   // Quickly parse through args
   // to find config files.
   let config = null;
@@ -859,6 +889,9 @@ function getArgs(argv) {
       case '-V':
       case '--version':
         return args;
+      case '--':
+        i = args.length;
+        break;
       case '--config': {
         if (i + 1 < args.length)
           config = args[++i];
@@ -949,16 +982,22 @@ function getArgs(argv) {
 
   if (typeof opts === 'string') {
     const text = fs.readFileSync(opts, 'utf8');
-    const args = text.replace(/^#.*$/gm, '')
-                     .replace(/\\\s/g, '%20')
-                     .split(/\s+/);
+    const parts = text.replace(/^#.*$/gm, '')
+                      .replace(/\\\s/g, '%20')
+                      .split(/\s+/);
+    const items = [];
 
-    for (const arg of args) {
+    for (const arg of parts) {
       if (arg.length === 0)
         continue;
 
-      out.push(arg.replace(/%20/g, ' '));
+      if (arg === '--')
+        throw new Error(`Invalid argument: ${arg}.`);
+
+      items.push(arg.replace(/%20/g, ' '));
     }
+
+    out.push(...normalizeArgs(items));
   }
 
   // Args go on last (higher precedence).
@@ -1486,6 +1525,11 @@ function parseArgs() {
       case '-z':
       case '--console': {
         options.console = value;
+        break;
+      }
+
+      case '--': {
+        i = args.length;
         break;
       }
 
