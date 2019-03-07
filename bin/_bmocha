@@ -1675,9 +1675,6 @@ function parseArgs() {
 
     if (options.why)
       throw new Error('Cannot use --why with --listen.');
-  } else {
-    if (options.sources.length > 0)
-      throw new Error('Cannot use --csp-source without --listen.');
   }
 
   if (options.ssl) {
