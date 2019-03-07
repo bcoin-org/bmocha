@@ -71,12 +71,13 @@ const HELP = `
                              (default: false)
     -B, --backend <value>    set the NODE_BACKEND environment variable
     -b, --bail               bail after first test failure (default: false)
+    --check-leaks            check for global variable leaks (default: false)
+    --chrome <path>          chrome binary to use for headless mode
     -c, --colors             force enabling of colors
     -C, --no-colors          force disabling of colors
     --compilers <ext>:<mod>  use the given module(s) to compile files
     --config <path>          path to config file (default: nearest rc file)
-    --check-leaks            check for global variable leaks (default: false)
-    --chrome <path>          chrome binary to use for headless mode
+    --csp-source             add content-security-policy source
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
@@ -1077,6 +1078,7 @@ function parseArgs() {
     requires: [],
     retries: 0,
     slow: 75,
+    sources: [],
     ssl: false,
     sslIgnore: false,
     sort: false,
@@ -1156,6 +1158,16 @@ function parseArgs() {
         break;
       }
 
+      case '--check-leaks': {
+        options.checkLeaks = value;
+        break;
+      }
+
+      case '--chrome': {
+        options.chrome = value ? next() : null;
+        break;
+      }
+
       case '-c':
       case '--color':
       case '--colors': {
@@ -1165,22 +1177,6 @@ function parseArgs() {
 
       case '-C': {
         options.colors = false;
-        break;
-      }
-
-      case '--config': {
-        if (value)
-          next();
-        break;
-      }
-
-      case '--check-leaks': {
-        options.checkLeaks = value;
-        break;
-      }
-
-      case '--chrome': {
-        options.chrome = value ? next() : null;
         break;
       }
 
@@ -1207,6 +1203,28 @@ function parseArgs() {
 
           requires.push(mod);
           extensions.push(ext);
+        }
+
+        break;
+      }
+
+      case '--config': {
+        if (value)
+          next();
+        break;
+      }
+
+      case '--csp-source': {
+        if (!value) {
+          options.sources.length = 0;
+          break;
+        }
+
+        for (const src of next().split(',')) {
+          if (src.length === 0)
+            throw new Error('Invalid CSP source.');
+
+          options.sources.push(src);
         }
 
         break;
@@ -1629,6 +1647,9 @@ function parseArgs() {
     if (options.console)
       throw new Error('Cannot use --console with init.');
 
+    if (options.sources.length > 0)
+      throw new Error('Cannot use --csp-source with init.');
+
     if (options.delay)
       throw new Error('Cannot use --delay with init.');
 
@@ -1654,6 +1675,9 @@ function parseArgs() {
 
     if (options.why)
       throw new Error('Cannot use --why with --listen.');
+  } else {
+    if (options.sources.length > 0)
+      throw new Error('Cannot use --csp-source without --listen.');
   }
 
   if (options.ssl) {

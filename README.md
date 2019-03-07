@@ -28,12 +28,13 @@ $ bmocha --help
                              (default: false)
     -B, --backend <value>    set the NODE_BACKEND environment variable
     -b, --bail               bail after first test failure (default: false)
+    --check-leaks            check for global variable leaks (default: false)
+    --chrome <path>          chrome binary to use for headless mode
     -c, --colors             force enabling of colors
     -C, --no-colors          force disabling of colors
     --compilers <ext>:<mod>  use the given module(s) to compile files
     --config <path>          path to config file (default: nearest rc file)
-    --check-leaks            check for global variable leaks (default: false)
-    --chrome <path>          chrome binary to use for headless mode
+    --csp-source             add content-security-policy source
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
@@ -180,9 +181,7 @@ The tests will run in a browserify environment with some extra features:
 - The `fs` module will work in "read-only" mode. All of the read calls,
   including `access`, `exists`, `stat`, `readdir`, and `readFile` will all work
   properly (sync and async). As a security measure, they will only be able to
-  access your current working directory and nothing else (note that this is not
-  a jail or chroot: if you have a symlink out of your module's directory, the
-  tests will be able to access this).
+  access your current working directory and nothing else.
 
 If your chrome binary is somewhere non-standard, you are able to pass the
 `--chrome` flag.
