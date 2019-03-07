@@ -1635,6 +1635,9 @@ function parseArgs() {
   if (options.fgrep && options.grep)
     throw new Error('Cannot use --fgrep with --grep.');
 
+  if (options.invert && !options.fgrep && !options.grep)
+    throw new Error('--invert requires --fgrep or --grep.');
+
   if (options.headless) {
     if (options.console)
       throw new Error('Cannot use --console with --headless.');
