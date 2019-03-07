@@ -747,7 +747,9 @@ function findConfig(root) {
   let dir = normalize(root);
 
   for (;;) {
-    for (const name of ['.mocharc.js',
+    for (const name of ['.bmocharc.js',
+                        '.bmocharc.json',
+                        '.mocharc.js',
                         '.mocharc.yaml',
                         '.mocharc.yml',
                         '.mocharc.jsonc',
@@ -995,7 +997,7 @@ function getArgs(argv) {
     if (!data || typeof data !== 'object')
       throw new Error(`Invalid package.json: ${string(pkg)}.`);
 
-    const json = data.mocha;
+    const json = data.bmocha || data.mocha;
 
     if (json && typeof json === 'object') {
       out.push(...parseConfig(json));
@@ -1030,9 +1032,7 @@ function getArgs(argv) {
   }
 
   // Args go on last (higher precedence).
-  out.push(...args);
-
-  return out;
+  return [out.length, out.concat(args)];
 }
 
 function parseArgs() {
@@ -1066,6 +1066,10 @@ function parseArgs() {
     grep: null,
     growl: false,
     headless: false,
+    implyHeadless: false,
+    implyListen: false,
+    implyOpen: false,
+    implySSL: false,
     init: null,
     invert: false,
     key: null,
@@ -1102,8 +1106,9 @@ function parseArgs() {
 
   let i = 0;
   let value = true;
+  let imply = false;
 
-  const args = getArgs(argv.slice(2));
+  const [start, args] = getArgs(argv.slice(2));
 
   const ensure = () => {
     if (!value)
@@ -1123,10 +1128,13 @@ function parseArgs() {
     let arg = args[i];
 
     value = true;
+    imply = false;
 
     if (arg.startsWith('--no-')) {
       arg = `--${arg.substring(5)}`;
       value = false;
+    } else {
+      imply = i >= start;
     }
 
     switch (arg) {
@@ -1358,6 +1366,7 @@ function parseArgs() {
       case '-H':
       case '--headless': {
         options.headless = value;
+        options.implyListen = imply;
         break;
       }
 
@@ -1395,12 +1404,14 @@ function parseArgs() {
       case '-m':
       case '--cmd': {
         options.cmd = value ? next() : '';
+        options.implyOpen = imply;
         break;
       }
 
       case '-o':
       case '--open': {
         options.open = value;
+        options.implyListen = imply;
         break;
       }
 
@@ -1443,6 +1454,7 @@ function parseArgs() {
       case '--port': {
         if (!value) {
           options.port = -1;
+          options.implyListen = imply;
           break;
         }
 
@@ -1452,6 +1464,7 @@ function parseArgs() {
           throw new Error(`Invalid port: ${port}.`);
 
         options.port = port;
+        options.implyListen = imply;
 
         break;
       }
@@ -1503,23 +1516,27 @@ function parseArgs() {
 
       case '--ssl': {
         options.ssl = value;
+        options.implyListen = imply;
         break;
       }
 
       case '--cert':
       case '--ssl-cert': {
         options.cert = value ? fs.readFileSync(next()) : null;
+        options.implySSL = imply;
         break;
       }
 
       case '--ssl-ignore': {
         options.sslIgnore = value;
+        options.implySSL = imply;
         break;
       }
 
       case '--key':
       case '--ssl-key': {
         options.key = value ? fs.readFileSync(next()) : null;
+        options.implySSL = imply;
         break;
       }
 
@@ -1571,6 +1588,7 @@ function parseArgs() {
       case '-z':
       case '--console': {
         options.console = value;
+        options.implyListen = imply;
         break;
       }
 
@@ -1595,35 +1613,23 @@ function parseArgs() {
     }
   }
 
-  // `--cmd` implies `--open`.
-  if (options.cmd)
-    options.open = true;
-
-  // `--chrome` implies `--headless`.
-  if (options.chrome)
+  // Only _arguments_ can imply other "modes".
+  if (options.implyHeadless) {
+    options.listen = true;
     options.headless = true;
-
-  // `--ssl-cert` and `--ssl-key` both imply `--ssl`.
-  if (options.cert || options.key)
-    options.ssl = true;
-
-  // `--ssl-ignore` implies `--headless` and `--ssl`.
-  if (options.sslIgnore) {
-    options.headless = true;
-    options.ssl = true;
   }
 
-  // `--port` implies `--listen`.
-  // `--ssl` implies `--listen`.
-  // `--open` implies `--listen`.
-  // `--headless` implies `--listen`.
-  // `--console` implies `--listen`.
-  if (options.port !== -1
-      || options.ssl
-      || options.open
-      || options.headless
-      || options.console) {
+  if (options.implyListen)
     options.listen = true;
+
+  if (options.implyOpen) {
+    options.listen = true;
+    options.open = true;
+  }
+
+  if (options.implySSL) {
+    options.listen = true;
+    options.ssl = true;
   }
 
   // `--listen` implies `--port=8080` if no "ui" options are chosen.
@@ -1638,29 +1644,9 @@ function parseArgs() {
   if (options.invert && !options.fgrep && !options.grep)
     throw new Error('--invert requires --fgrep or --grep.');
 
-  if (options.headless) {
-    if (options.console)
-      throw new Error('Cannot use --console with --headless.');
-  }
-
   if (options.init) {
-    if (options.backend)
-      throw new Error('Cannot use --backend with init.');
-
-    if (options.console)
-      throw new Error('Cannot use --console with init.');
-
-    if (options.sources.length > 0)
-      throw new Error('Cannot use --csp-source with init.');
-
     if (options.delay)
       throw new Error('Cannot use --delay with init.');
-
-    if (Object.keys(options.env).length > 0)
-      throw new Error('Cannot use --env with init.');
-
-    if (options.exit)
-      throw new Error('Cannot use --exit with init.');
 
     if (options.listen)
       throw new Error('Cannot use --listen with init.');
@@ -1678,14 +1664,14 @@ function parseArgs() {
 
     if (options.why)
       throw new Error('Cannot use --why with --listen.');
-  }
 
-  if (options.ssl) {
-    if (!options.key)
-      throw new Error('--ssl specified with no provided key.');
+    if (options.ssl) {
+      if (!options.key)
+        throw new Error('--ssl specified with no provided key.');
 
-    if (!options.cert)
-      throw new Error('--ssl specified with no provided cert.');
+      if (!options.cert)
+        throw new Error('--ssl specified with no provided cert.');
+    }
   }
 
   // Set extensions to .js by default.
