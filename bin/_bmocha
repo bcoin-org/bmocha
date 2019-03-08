@@ -163,6 +163,7 @@ const REPORTERS = `
     xunit - xunit reporter
 `;
 
+const DEFAULT_BOPTS = resolve(cwd, 'test', 'bmocha.opts');
 const DEFAULT_OPTS = resolve(cwd, 'test', 'mocha.opts');
 const DEFAULT_PKG = resolve(cwd, 'package.json');
 const BIN_PATH = resolve(__dirname, '..', 'bin');
@@ -1008,8 +1009,12 @@ function getArgs(argv) {
   }
 
   // Parse legacy test/mocha.opts file.
-  if (opts === null && exists(DEFAULT_OPTS))
-    opts = DEFAULT_OPTS;
+  if (opts === null) {
+    if (exists(DEFAULT_BOPTS))
+      opts = DEFAULT_BOPTS;
+    else if (exists(DEFAULT_OPTS))
+      opts = DEFAULT_OPTS;
+  }
 
   if (typeof opts === 'string') {
     const text = fs.readFileSync(opts, 'utf8');
