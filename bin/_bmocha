@@ -919,7 +919,7 @@ function getArgs(argv) {
       case '--reporters':
       case '-V':
       case '--version':
-        return args;
+        return [0, args];
       case '--':
         i = args.length;
         break;
