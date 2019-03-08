@@ -1413,6 +1413,12 @@ function parseArgs() {
         break;
       }
 
+      case '--node': {
+        if (value)
+          next();
+        break;
+      }
+
       case '-o':
       case '--open': {
         options.open = value;
