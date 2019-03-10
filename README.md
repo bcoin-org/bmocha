@@ -34,7 +34,8 @@ $ bmocha --help
     -C, --no-colors          force disabling of colors
     --compilers <ext>:<mod>  use the given module(s) to compile files
     --config <path>          path to config file (default: nearest rc file)
-    --csp-source             add content-security-policy source
+    --csp-source <src>       add content-security-policy source
+                             (default: 'self')
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
