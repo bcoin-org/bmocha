@@ -38,7 +38,8 @@ $ bmocha --help
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
-    -e, --env <name=val>     comma-separated list of environment variables
+    -e, --env <name=val>     set environment variable (can be specified multiple
+                             times)
     --exclude <file>         a file to ignore
     --exit                   force shutdown of the event loop after test run
                              (default: false)
@@ -63,7 +64,7 @@ $ bmocha --help
     -l, --listen             serve client-side test files (requires browserify)
                              (default: false)
     -m, --cmd <cmd>          set browser command (default: $BROWSER)
-    --node <path>            path to custom node.js binary
+    --node <path>            path to node.js binary (default: process.execPath)
     -o, --open               open browser after serving (default: false)
     -O, --reporter-options   reporter-specific options
     --opts <path>            path to "mocha.opts" (default: ./test/mocha.opts)

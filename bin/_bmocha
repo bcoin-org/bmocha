@@ -81,7 +81,8 @@ const HELP = `
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
-    -e, --env <name=val>     comma-separated list of environment variables
+    -e, --env <name=val>     set environment variable (can be specified multiple
+                             times)
     --exclude <file>         a file to ignore
     --exit                   force shutdown of the event loop after test run
                              (default: false)
@@ -106,7 +107,7 @@ const HELP = `
     -l, --listen             serve client-side test files (requires browserify)
                              (default: false)
     -m, --cmd <cmd>          set browser command (default: $BROWSER)
-    --node <path>            path to custom node.js binary
+    --node <path>            path to node.js binary (default: process.execPath)
     -o, --open               open browser after serving (default: false)
     -O, --reporter-options   reporter-specific options
     --opts <path>            path to "mocha.opts" (default: ./test/mocha.opts)
@@ -1255,17 +1256,25 @@ function parseArgs() {
           break;
         }
 
-        for (const pair of next().split(',')) {
-          const parts = pair.split('=');
+        const pair = next();
 
-          if (parts.length > 2 || parts[0].length === 0)
-            throw new Error(`Invalid environment variable: ${pair}.`);
+        if (pair.length === 0)
+          throw new Error('Invalid environment variable.');
 
-          if (parts.length === 2)
-            options.env[parts[0]] = parts[1].length ? parts[1] : null;
-          else
-            options.env[parts[0]] = '1';
+        const index = pair.indexOf('=');
+
+        if (index === -1) {
+          options.env[pair] = '1';
+          break;
         }
+
+        const key = pair.substring(0, index);
+        const val = pair.substring(index + 1);
+
+        if (val.length > 0)
+          options.env[key] = val;
+        else
+          options.env[key] = null;
 
         break;
       }
