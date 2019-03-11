@@ -341,39 +341,24 @@ function growl(msg, opts, callback) {
     default:
       break;
   }
+
   const cmdToExec = args.shift();
 
-  const child = spawn(cmdToExec, args);
-  let stdout = '';
-  let stderr = '';
-  let error;
-
-  const now = new Date();
-  const timestamp = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}.${now.getMilliseconds()}`
-
-  stderr += `[${timestamp}][node-growl] : Executed command '${cmdToExec}' with arguments '${args}'\n[stderr] : `;
-
-  for (const stream of [child, child.stdin, child.stdout, child.stderr]) {
-    stream.on('error', (err) => {
-      if (typeof fn !== 'function')
-        console.error('An error occured.', err);
-      error = err;
-    });
-  }
-
-  child.stdout.on('data', (data) => {
-    stdout += data;
+  const child = spawn(cmdToExec, args, {
+    stdio: 'ignore'
   });
 
-  child.stderr.on('data', (data) => {
-    stderr += data;
-  });
+  let called = false;
 
-  child.on('close', () => {
-    if (typeof fn === 'function') {
-      fn(error, stdout, stderr);
+  const cb = (err) => {
+    if (!called) {
+      called = true;
+      fn(err);
     }
-  });
+  };
+
+  child.on('error', cb);
+  child.on('exit', () => cb());
 }
 
 /**
