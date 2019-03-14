@@ -259,52 +259,29 @@ compile and serve `${__dirname}/worker.js` as `/worker.js`.
 Bmocha supports arrow functions in a backwardly compatible way:
 
 ``` js
-describe('Suite', (ctx) => {
-  ctx.timeout(1000);
+describe('Suite', function() {
+  this.timeout(1000);
 
-  it('should skip test', (ctx) => {
-    ctx.skip();
+  it('should skip test', () => {
+    this.skip();
     assert(1 === 0);
   });
 });
 ```
 
-For `it` calls, the argument name _must_ be `ctx`. Any single parameter
-function with a `ctx` argument is considered a "context" variable instead of a
-callback.
-
-However, it is also possible to use callbacks _and_ contexts.
-
 ``` js
-describe('Suite', (ctx) => {
-  ctx.timeout(200);
+describe('Suite', (self) => {
+  self.timeout(1000);
 
-  it('should run test (async)', (done) => {
-    done.slow(10);
-    assert(typeof done === 'function');
-    setTimeout(done, 20);
+  it('should skip test', () => {
+    self.skip();
+    assert(1 === 0);
   });
 });
 ```
 
-The context's properties are injected into the callback whenever a callback
-function is requested.
-
-#### Single-Letter Context Variables
-
-Typing `ctx` repeatedly may seem unwieldly compared to writing normal arrow
-functions. For this reason, there are 3 more "reserved arguments": `$`, `_`,
-and `x`.
-
-``` js
-describe('Suite', () => {
-  it('should skip test', $ => $.skip());
-  it('should skip test', _ => _.skip());
-  it('should skip test', x => x.skip());
-});
-```
-
-All three will work as "context variables".
+Both styles are valid. Note that the `this` style requires at least one outer
+function defined as a regular `function` expression.
 
 ### Fixes for Mocha legacy behavior
 

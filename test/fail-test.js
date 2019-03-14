@@ -243,24 +243,6 @@ describe('Fail', function() {
       assert(1);
     });
 
-    if (!IS_MOCHA) {
-      it('should succeed (context sync)', (ctx) => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.timeout === 'function');
-      });
-
-      it('should succeed (context async)', async (ctx) => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.timeout === 'function');
-      });
-
-      it('should succeed (context sync)', (cb) => {
-        assert(cb && typeof cb === 'function');
-        assert(typeof cb.timeout === 'function');
-        cb();
-      });
-    }
-
     it('should fail (overspecified async func)', async (cb) => {
       assert(1);
     });

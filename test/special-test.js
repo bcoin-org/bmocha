@@ -3,9 +3,8 @@
 
 'use strict';
 
-describe('Special', () => {
-  it('should skip test', $ => $.skip());
-  it('should skip test', _ => _.skip());
-  it('should skip test', x => x.skip());
+describe('Special', function(ctx) {
+  it('should skip test', () => this.skip());
+  it('should skip test', () => ctx.skip());
   it('should not skip test', cb => cb());
 });

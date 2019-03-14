@@ -93,7 +93,7 @@ describe('Mocha', function() {
         called += 1;
       });
 
-      it('should take a while (3)', (cb) => {
+      it('should take a while (3)', function(cb) {
         this.timeout(2000);
         assert.strictEqual(x, 11);
         setTimeout(cb, 30);
@@ -648,114 +648,72 @@ describe('Mocha', function() {
     });
   }
 
+  describe('Normal Context', function(ctx) {
+    it('should have context (this)', function() {
+      assert(this && typeof this === 'object');
+      assert(typeof this.retries === 'function');
+    });
+
+    it('should have context (this async)', async function() {
+      assert(this && typeof this === 'object');
+      assert(typeof this.retries === 'function');
+    });
+
+    it('should have context (this cb)', function(cb) {
+      assert(this && typeof this === 'object');
+      assert(typeof this.retries === 'function');
+      cb();
+    });
+
+    it('should have context (ctx)', function() {
+      assert(ctx && typeof ctx === 'object');
+      assert(typeof ctx.retries === 'function');
+    });
+
+    it('should have context (ctx async)', async function() {
+      assert(ctx && typeof ctx === 'object');
+      assert(typeof ctx.retries === 'function');
+    });
+
+    it('should have context (ctx cb)', function(cb) {
+      assert(ctx && typeof ctx === 'object');
+      assert(typeof ctx.retries === 'function');
+      cb();
+    });
+  });
+
   if (!IS_MOCHA) {
-    describe('Context', function() {
-      it('should have context (cb)', function(cb) {
-        assert(typeof cb === 'function');
-        assert(typeof cb.retries === 'function');
+    describe('Context', function(ctx) {
+      it('should have context (this)', () => {
+        assert(this && typeof this === 'object');
+        assert(typeof this.retries === 'function');
+      });
+
+      it('should have context (this async)', async () => {
+        assert(this && typeof this === 'object');
+        assert(typeof this.retries === 'function');
+      });
+
+      it('should have context (this cb)', (cb) => {
+        assert(this && typeof this === 'object');
+        assert(typeof this.retries === 'function');
         cb();
       });
 
-      it('should have context (ctx)', function(ctx) {
+      it('should have context (ctx)', () => {
         assert(ctx && typeof ctx === 'object');
         assert(typeof ctx.retries === 'function');
       });
 
-      it('should have context (ctx async)', async function(ctx) {
+      it('should have context (ctx async)', async () => {
         assert(ctx && typeof ctx === 'object');
         assert(typeof ctx.retries === 'function');
       });
 
-      it('should have context ($ sync)', function($) {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context ($ async)', async function($) {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context (_ sync)', function(_) {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
-      });
-
-      it('should have context (_ async)', async function(_) {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
-      });
-
-      it('should have context (cb)', (cb) => {
-        assert(typeof cb === 'function');
-        assert(typeof cb.retries === 'function');
+      it('should have context (ctx cb)', (cb) => {
+        assert(ctx && typeof ctx === 'object');
+        assert(typeof ctx.retries === 'function');
         cb();
-      });
-
-      it('should have context (ctx)', (ctx) => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.retries === 'function');
-      });
-
-      it('should have context (ctx async)', async (ctx) => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.retries === 'function');
-      });
-
-      it('should have context ($ sync)', ($) => {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context ($ async)', async ($) => {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context (_ sync)', (_) => {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
-      });
-
-      it('should have context (_ async)', async (_) => {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
-      });
-
-      it('should have context (cb)', cb => {
-        assert(typeof cb === 'function');
-        assert(typeof cb.retries === 'function');
-        cb();
-      });
-
-      it('should have context (ctx)', ctx => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.retries === 'function');
-      });
-
-      it('should have context (ctx async)', async ctx => {
-        assert(ctx && typeof ctx === 'object');
-        assert(typeof ctx.retries === 'function');
-      });
-
-      it('should have context ($ sync)', $ => {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context ($ async)', async $ => {
-        assert($ && typeof $ === 'object');
-        assert(typeof $.retries === 'function');
-      });
-
-      it('should have context (_ sync)', _ => {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
-      });
-
-      it('should have context (_ async)', async _ => {
-        assert(_ && typeof _ === 'object');
-        assert(typeof _.retries === 'function');
       });
     });
   }
