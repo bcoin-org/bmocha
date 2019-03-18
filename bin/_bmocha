@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 const glob = require('../vendor/glob.js');
 const bmocha = require('../lib/bmocha.js');
+const imports = require('../lib/imports.js');
 
 const {
   basename,
@@ -182,11 +183,16 @@ function string(str) {
   return JSON.stringify(str);
 }
 
-function wrapRequire(file) {
+function wrapImport(file) {
   assert(typeof file === 'string');
 
-  return () => {
+  return async () => {
     const path = resolve(cwd, file);
+
+    if (imports.supported) {
+      await imports(imports.pathToFileURL(path));
+      return;
+    }
 
     delete require.cache[path];
 
@@ -1927,7 +1933,7 @@ function catcher(reject, allowMultiple) {
 
     for (const file of options.requires) {
       try {
-        globalRequire(file);
+        await globalRequire.imports(file);
       } catch (e) {
         if (e.code === 'MODULE_NOT_FOUND')
           exception(e.message);
@@ -1946,7 +1952,7 @@ function catcher(reject, allowMultiple) {
     }
   }
 
-  const funcs = options.files.map(wrapRequire);
+  const funcs = options.files.map(wrapImport);
   const code = await mocha.run(funcs);
 
   if (options.watch) {

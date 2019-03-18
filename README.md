@@ -283,6 +283,14 @@ describe('Suite', (self) => {
 Both styles are valid. Note that the `this` style requires at least one outer
 function defined as a regular `function` expression.
 
+### ESM Support
+
+Bmocha also includes out-of-the-box support for ESM:
+
+``` bash
+$ bmocha --experimental-modules ./test.mjs
+```
+
 ### Fixes for Mocha legacy behavior
 
 Since we're building from scratch with zero dependents, we have an opportunity

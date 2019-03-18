@@ -36,6 +36,7 @@ const nodeOptions = new Set([
   '--inspect-brk-node',
 
   // Environment Options
+  '--experimental-json-modules',
   '--experimental-modules',
   '--experimental-policy',
   '--experimental-repl-await',
@@ -46,6 +47,7 @@ const nodeOptions = new Set([
   '--frozen-intrinsics',
   '--http-parser',
   '--loader',
+  '--es-module-specifier-resolution',
   '--no-deprecation',
   '--no-force-async-hooks-checks',
   '--no-warnings',
@@ -56,6 +58,7 @@ const nodeOptions = new Set([
   '--trace-deprecation',
   '--trace-sync-io',
   '--trace-warnings',
+  // '--entry-type',
   // '-c', '--check',
   // '-e', '--eval',
   // '-p', '--print',
@@ -120,7 +123,9 @@ const valueOptions = new Set([
   '--experimental-policy',
   '--http-parser',
   '--loader',
+  '--es-module-specifier-resolution',
   '--redirect-warnings',
+  '--entry-type',
   '-e', '--eval',
   '-p', '--print',
   '-r', '--require',
