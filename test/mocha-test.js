@@ -1,7 +1,4 @@
-/* eslint-env mocha */
-/* eslint prefer-arrow-callback: "off" */
-/* eslint arrow-parens: "off" */
-/* global register, Worker */
+/* global Worker */
 
 'use strict';
 
