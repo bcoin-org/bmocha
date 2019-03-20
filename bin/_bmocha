@@ -752,8 +752,10 @@ function findConfig(root) {
 
   for (;;) {
     for (const name of ['.bmocharc.js',
+                        '.bmocharc.mjs',
                         '.bmocharc.json',
                         '.mocharc.js',
+                        '.mocharc.mjs',
                         '.mocharc.yaml',
                         '.mocharc.yml',
                         '.mocharc.jsonc',
@@ -827,9 +829,17 @@ function parseConfig(json) {
   return args;
 }
 
-function readJS(file) {
+async function readJS(file) {
   assert(typeof file === 'string');
-  return require(resolve(cwd, file));
+
+  const path = resolve(cwd, file);
+
+  if (imports.supported) {
+    const ns = await imports(imports.pathToFileURL(path));
+    return ns['default'] || ns;
+  }
+
+  return require(path);
 }
 
 function readJSON(file) {
@@ -880,7 +890,7 @@ function normalizeArgs(argv) {
   return args;
 }
 
-function getArgs(argv) {
+async function getArgs(argv) {
   assert(Array.isArray(argv));
 
   const args = [];
@@ -968,7 +978,8 @@ function getArgs(argv) {
 
     switch (ext) {
       case '.js':
-        json = readJS(config);
+      case '.mjs':
+        json = await readJS(config);
         break;
       case '.json':
         json = readJSON(config);
@@ -1043,7 +1054,7 @@ function getArgs(argv) {
   return [out.length, out.concat(args)];
 }
 
-function parseArgs() {
+async function parseArgs() {
   const options = {
     __proto__: null,
     allowMultiple: false,
@@ -1116,7 +1127,7 @@ function parseArgs() {
   let value = true;
   let imply = false;
 
-  const [start, args] = getArgs(argv.slice(2));
+  const [start, args] = await getArgs(argv.slice(2));
 
   const ensure = () => {
     if (!value)
@@ -1843,7 +1854,7 @@ function catcher(reject, allowMultiple) {
   let options;
 
   try {
-    options = parseArgs();
+    options = await parseArgs();
   } catch (e) {
     if (e.code === 'ENOENT') {
       const file = relative(cwd, resolve(cwd, e.path));
