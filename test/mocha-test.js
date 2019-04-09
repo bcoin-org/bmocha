@@ -506,6 +506,20 @@ describe('Mocha', function() {
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
 
+    it('should read json file', () => {
+      const json = fs.readJSONSync(FILE);
+
+      assert.strictEqual(json.name, 'bmocha');
+
+      assert.throws(() => {
+        fs.readJSONSync(NOENT);
+      }, /ENOENT/);
+
+      assert.throws(() => {
+        fs.readJSONSync(ACCES);
+      }, process.browser ? /EACCES/ : /ENOENT/);
+    });
+
     it('should read file (buffer)', () => {
       const raw = fs.readFileSync(FILE);
 
@@ -591,6 +605,20 @@ describe('Mocha', function() {
 
       await assert.rejects(() => {
         return fs.readFile(ACCES, 'utf8');
+      }, process.browser ? /EACCES/ : /ENOENT/);
+    });
+
+    it('should read json file (async)', async () => {
+      const json = await fs.readJSON(FILE);
+
+      assert.strictEqual(json.name, 'bmocha');
+
+      await assert.rejects(() => {
+        return fs.readJSON(NOENT);
+      }, /ENOENT/);
+
+      await assert.rejects(() => {
+        return fs.readJSON(ACCES);
       }, process.browser ? /EACCES/ : /ENOENT/);
     });
 
