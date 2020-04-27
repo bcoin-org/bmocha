@@ -235,6 +235,7 @@ function main() {
 
   let node = file;
   let ended = false;
+  let valgrind = false;
 
   for (let i = 2; i < process.argv.length; i++) {
     let arg = process.argv[i];
@@ -294,6 +295,12 @@ function main() {
       continue;
     }
 
+    if (arg === '--valgrind') {
+      valgrind = true;
+      argv.push('--no-timeouts');
+      continue;
+    }
+
     if (arg.startsWith(`--${INSPECT}`))
       argv.push('--no-timeouts');
 
@@ -317,13 +324,21 @@ function main() {
   // All pointless if we didn't have any
   // node options. Use the same process
   // to speed things up.
-  if (node === file && execArgv.length === execArgvLen) {
+  if (node === file && execArgv.length === execArgvLen && !valgrind) {
     require('./_bmocha');
     return;
   }
 
   const {spawn} = require('child_process');
   const args = execArgv.concat(argv);
+
+  if (valgrind) {
+    args.unshift(node);
+    args.unshift('--track-origins=yes');
+    args.unshift('--leak-check=full');
+    args.unshift('--show-leak-kinds=definite,indirect,possible');
+    node = 'valgrind';
+  }
 
   const ps = spawn(node, args, {
     stdio: 'inherit'
