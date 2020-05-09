@@ -136,6 +136,7 @@ const HELP = `
     --timeouts               enables timeouts (default: true)
     -u, --ui <name>          specify user-interface (bdd) (default: bdd)
     --valgrind               run tests with valgrind enabled
+    --valgrind-log           run tests with valgrind enabled (write to log file)
     -V, --version            output the version number
     -w, --watch              watch files in the current working directory
                              (default: false)

@@ -236,6 +236,7 @@ function main() {
   let node = file;
   let ended = false;
   let valgrind = false;
+  let vallog = false;
 
   for (let i = 2; i < process.argv.length; i++) {
     let arg = process.argv[i];
@@ -295,9 +296,9 @@ function main() {
       continue;
     }
 
-    if (arg === '--valgrind') {
+    if (arg === '--valgrind' || arg === '--valgrind-log') {
       valgrind = true;
-      argv.push('--no-timeouts');
+      vallog = arg === '--valgrind-log';
       continue;
     }
 
@@ -330,13 +331,24 @@ function main() {
   }
 
   const {spawn} = require('child_process');
-  const args = execArgv.concat(argv);
+
+  let args = execArgv.concat(argv);
 
   if (valgrind) {
-    args.unshift(node);
-    args.unshift('--track-origins=yes');
-    args.unshift('--leak-check=full');
-    args.unshift('--show-leak-kinds=definite,indirect,possible');
+    const vargs = [
+      '--leak-check=full',
+      '--show-leak-kinds=definite,indirect,possible',
+      '--track-origins=yes'
+    ];
+
+    if (vallog)
+      vargs.push('--log-file=valgrind-%p.log');
+
+    args.push('--no-timeouts');
+    args.push('-e');
+    args.push('BMOCHA_VALGRIND=1');
+
+    args = [...vargs, node, ...args];
     node = 'valgrind';
   }
 
