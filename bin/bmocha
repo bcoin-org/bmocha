@@ -337,8 +337,7 @@ function main() {
   if (valgrind) {
     const vargs = [
       '--leak-check=full',
-      '--show-leak-kinds=definite,indirect,possible',
-      '--track-origins=yes'
+      '--show-leak-kinds=definite,indirect,possible'
     ];
 
     if (vallog)
