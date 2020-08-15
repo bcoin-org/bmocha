@@ -40,6 +40,8 @@ const nodeOptions = new Set([
   '--experimental-modules',
   '--experimental-wasm-modules',
   '--experimental-wasi-modules',
+  '--experimental-wasi-unstable-preview1',
+  '--experimental-wasm-bigint',
   '--experimental-policy',
   '--experimental-repl-await',
   '--experimental-vm-modules',
