@@ -1641,6 +1641,14 @@ async function parseArgs() {
           break;
         }
 
+        // NPM on windows passes verbatim arguments.
+        if (process.platform === 'win32' && arg.length > 1) {
+          const quot = arg[0] + arg[arg.length - 1];
+
+          if (quot === '\'\'' || quot === '""')
+            arg = arg.slice(1, -1);
+        }
+
         files.push(arg);
 
         break;
