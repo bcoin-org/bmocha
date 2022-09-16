@@ -1,6 +1,6 @@
 {
   "name": "bmocha",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "description": "Alternative implementation of mocha",
   "keywords": [
     "mocha",

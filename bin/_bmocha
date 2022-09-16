@@ -50,7 +50,7 @@ const off = process.removeListener.bind(process);
  * Constants
  */
 
-const VERSION = '2.1.4';
+const VERSION = '2.1.7';
 
 const HELP = `
   Usage: bmocha [options] [files]
