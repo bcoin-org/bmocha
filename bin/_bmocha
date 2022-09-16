@@ -37,7 +37,6 @@ const {
 
 const {
   errorify,
-  inspect,
   Mocha,
   style
 } = bmocha;
@@ -65,7 +64,6 @@ const HELP = `
 
   Options:
 
-    --allow-multiple         allow multiple promise resolutions (default: false)
     --allow-uncaught         enable uncaught errors to propagate
                              (default: false)
     -A, --async-only         require all tests to use a callback or promise
@@ -1059,7 +1057,6 @@ async function getArgs(argv) {
 async function parseArgs() {
   const options = {
     __proto__: null,
-    allowMultiple: false,
     allowUncaught: false,
     asyncOnly: false,
     backend: null,
@@ -1159,11 +1156,6 @@ async function parseArgs() {
     }
 
     switch (arg) {
-      case '--allow-multiple': {
-        options.allowMultiple = value;
-        break;
-      }
-
       case '-A':
       case '--async-only': {
         options.asyncOnly = value;
@@ -1810,7 +1802,7 @@ async function parseArgs() {
  * Error Handling
  */
 
-function catcher(reject, allowMultiple) {
+function catcher(reject) {
   const onError = (error) => {
     const err = errorify(error);
 
@@ -1829,30 +1821,12 @@ function catcher(reject, allowMultiple) {
     reject(err);
   };
 
-  const onMultiple = (type, promise, value) => {
-    const kind = inspect.type(value);
-    const err = new Error(`Multiple ${type}s detected for ${kind}.`);
-
-    err.uncaught = true;
-    err.multiple = true;
-    err.display = true;
-    err.value = value;
-
-    reject(err);
-  };
-
   on('uncaughtException', onError);
   on('unhandledRejection', onRejection);
-
-  if (!allowMultiple)
-    on('multipleResolves', onMultiple);
 
   return () => {
     off('uncaughtException', onError);
     off('unhandledRejection', onRejection);
-
-    if (!allowMultiple)
-      off('multipleResolves', onMultiple);
   };
 }
 

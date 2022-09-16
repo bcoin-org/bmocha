@@ -279,16 +279,6 @@ describe('Fail', function() {
       setTimeout(cb, 50);
     });
 
-    it('should fail (multiple resolves)', (cb) => {
-      setTimeout(() => {
-        new Promise((resolve, reject) => {
-          resolve(1);
-          resolve(2);
-        });
-      }, 10);
-      setTimeout(cb, 50);
-    });
-
     it('should fail (resolve & resolve)', () => {
       return new Promise((resolve, reject) => {
         resolve(3);
