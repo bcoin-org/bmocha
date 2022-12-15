@@ -599,6 +599,7 @@ function findChrome() {
   const files = [];
 
   for (const name of ['chromium',
+                      'chromium-browser',
                       'google-chrome',
                       'google-chrome-stable']) {
     for (const dir of env.PATH.split(':')) {
