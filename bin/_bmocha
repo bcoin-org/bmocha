@@ -995,10 +995,10 @@ async function getArgs(argv) {
     if (json && typeof json === 'object') {
       out.push(...parseConfig(json));
 
-      if (pkg === null && typeof json.package !== undefined)
+      if (pkg === null && json.package !== undefined)
         pkg = json.package;
 
-      if (opts === null && typeof json.opts !== undefined)
+      if (opts === null && json.opts !== undefined)
         opts = json.opts;
     }
   }
@@ -1018,7 +1018,7 @@ async function getArgs(argv) {
     if (json && typeof json === 'object') {
       out.push(...parseConfig(json));
 
-      if (opts === null && typeof json.opts !== undefined)
+      if (opts === null && json.opts !== undefined)
         opts = json.opts;
     }
   }
@@ -1929,7 +1929,7 @@ function catcher(reject) {
 
     for (const file of options.requires) {
       try {
-        await globalRequire.imports(file);
+        globalRequire(file);
       } catch (e) {
         if (e.code === 'MODULE_NOT_FOUND')
           exception(e.message);
