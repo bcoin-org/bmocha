@@ -1067,6 +1067,7 @@ async function parseArgs() {
     chrome: null,
     cmd: '',
     colors: Boolean(stdout.isTTY),
+    conditions: [],
     console: false,
     delay: false,
     diff: true,
@@ -1199,6 +1200,11 @@ async function parseArgs() {
 
       case '-C': {
         options.colors = false;
+        break;
+      }
+
+      case '--conditions': { // Undocumented.
+        options.conditions = next().split(',');
         break;
       }
 

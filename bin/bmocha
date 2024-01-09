@@ -21,8 +21,8 @@ const DEBUG = version >= 0x080000 ? 'debug' : 'inspect';
 
 /*
  * Options
- * https://github.com/nodejs/node/blob/master/src/node_options.cc
- * Last update: 4b74dae6b2601ee8be3b16fed48986f1be49f20a (May 26, 2019)
+ * https://github.com/nodejs/node/blob/v21.5.0/src/node_options.cc
+ * Last update: c3abdc58aff762b8d8088ca9487c55c4ffe2fe50 (Dec 15, 2023)
  */
 
 const nodeOptions = new Set([
@@ -34,8 +34,24 @@ const nodeOptions = new Set([
   '--inspect-port',
   '--inspect-brk',
   '--inspect-brk-node',
+  '--inspect-publish-uid',
 
   // Environment Options
+  '--policy-integrity',
+  '--allow-fs-read',
+  '--allow-fs-write',
+  '--allow-addons',
+  '--allow-child-process',
+  '--allow-worker',
+  '--no-allow-addons',
+  '--no-allow-child-process',
+  '--no-allow-worker',
+  '--no-addons',
+  '--conditions',
+  '--diagnostic-dir',
+  '--dns-result-order',
+  '--no-network-family-autoselection',
+  '--enable-source-maps',
   '--experimental-json-modules',
   '--experimental-modules',
   '--experimental-wasm-modules',
@@ -47,9 +63,29 @@ const nodeOptions = new Set([
   '--experimental-vm-modules',
   '--experimental-worker',
   '--experimental-report',
+  '--experimental-default-type',
+  '--experimental-loader',
+  '--experimental-global-webcrypto',
+  '--experimental-import-meta-resolve',
+  '--experimental-network-imports',
+  '--experimental-permission',
+  '--experimental-shadow-realm',
+  '--experimental-test-coverage',
+  '--experimental-websocket',
+  '--experimental-fetch',
+  '--experimental-global-customevent',
+  '--experimental-abortcontroller',
+  '--experimental-global-navigator',
+  '--no-experimental-repl-await',
+  '--no-experimental-global-webcrypto',
+  '--no-experimental-fetch',
+  '--no-experimental-global-customevent',
+  '--no-experimental-global-navigator',
   '--expose-internals',
   '--frozen-intrinsics',
   '--heapsnapshot-signal',
+  '--heapsnapshot-near-heap-limit',
+  '--insecure-http-parser',
   '--http-parser',
   // '--input-type',
   '--loader',
@@ -57,8 +93,13 @@ const nodeOptions = new Set([
   '--es-module-specifier-resolution',
   '--no-deprecation',
   '--no-force-async-hooks-checks',
+  '--no-global-search-paths',
   '--no-warnings',
+  '--disable-warning',
+  '--force-context-aware',
   '--pending-deprecation',
+  '--preserve-symlinks',
+  '--preserve-symlinks-main',
   // '--prof-process',
   '--cpu-prof',
   '--cpu-prof-path',
@@ -71,11 +112,16 @@ const nodeOptions = new Set([
   '--heap-prof-interval',
   '--redirect-warnings',
   '--throw-deprecation',
+  '--trace-atomics-wait',
   '--trace-deprecation',
+  '--trace-exit',
   '--trace-sync-io',
   '--trace-tls',
+  '--trace-uncaught',
   '--trace-warnings',
+  '--trace-promises',
   '--unhandled-rejections',
+  '--no-extra-info-on-fatal-exception',
   // '-c', '--check',
   // '-e', '--eval',
   // '-p', '--print',
@@ -84,6 +130,7 @@ const nodeOptions = new Set([
   '--napi-modules',
   '--tls-v1.0',
   '--tls-v1.1',
+  '--tls-keylog',
   '--tls-min-v1.0',
   '--tls-min-v1.1',
   '--tls-min-v1.2',
@@ -100,6 +147,8 @@ const nodeOptions = new Set([
   '--perf-prof',
   '--perf-prof-unwinding-info',
   '--stack-trace-limit',
+  '--disallow-code-generation-from-strings',
+  '--jitless',
   '--diagnostic-report-uncaught-exception',
   '--diagnostic-report-on-signal',
   '--diagnostic-report-on-fatalerror',
@@ -112,6 +161,8 @@ const nodeOptions = new Set([
   '--report-on-fatalerror',
   '--report-signal',
   '--report-filename',
+  '--report-compact',
+  '--report-dir',
   '--report-directory',
 
   // Per Process Options
@@ -123,6 +174,7 @@ const nodeOptions = new Set([
   '--max-http-header-size',
   '--v8-pool-size',
   '--zero-fill-buffers',
+  '--disable-proto',
   '--debug-arraybuffer-allocations',
   '--security-reverts',
   // '--completion-bash',
@@ -135,7 +187,12 @@ const nodeOptions = new Set([
   '--use-openssl-ca',
   '--use-bundled-ca',
   '--enable-fips',
-  '--force-fips'
+  '--force-fips',
+  '--secure-heap',
+  '--secure-heap-min',
+  '--use-largepages',
+  '--trace-sigint',
+  '--node-memory-debug'
 ]);
 
 const valueOptions = new Set([
@@ -147,10 +204,20 @@ const valueOptions = new Set([
   '--inspect-port',
   // '--inspect-brk',
   // '--inspect-brk-node',
+  '--inspect-publish-uid',
 
   // Environment Options
+  '--policy-integrity',
+  '--allow-fs-read',
+  '--allow-fs-write',
+  '--conditions',
+  '--diagnostic-dir',
+  '--dns-result-order',
   '--experimental-policy',
+  '--experimental-default-type',
+  '--experimental-loader',
   '--heapsnapshot-signal',
+  '--heapsnapshot-near-heap-limit',
   '--http-parser',
   '--input-type',
   '--loader',
@@ -168,6 +235,7 @@ const valueOptions = new Set([
   '-e', '--eval',
   '-p', '--print',
   '-r', '--require',
+  '--tls-keylog',
 
   // Per Isolate Options
   '--max-old-space-size',
@@ -177,17 +245,22 @@ const valueOptions = new Set([
   '--diagnostic-report-directory',
   '--report-signal',
   '--report-filename',
+  '--report-dir',
   '--report-directory',
 
   // Per Process Options
   '--title',
   '--trace-event-categories',
   '--trace-event-file-pattern',
+  '--disable-proto',
   '--max-http-header-size',
   '--v8-pool-size',
   '--icu-data-dir',
   '--openssl-config',
-  '--tls-cipher-list'
+  '--tls-cipher-list',
+  '--use-largepages',
+  '--secure-heap',
+  '--secure-heap-min'
 ]);
 
 function hasOption(options, arg, slice) {
@@ -306,6 +379,16 @@ function main() {
 
     if (arg.startsWith(`--${INSPECT}`))
       argv.push('--no-timeouts');
+
+    if (arg === '--conditions') {
+      argv.push(arg);
+
+      if (i + 1 < process.argv.length)
+        argv.push(process.argv[i + 1]);
+    }
+
+    if (arg.startsWith('--conditions='))
+      argv.push(arg);
 
     if (isNodeOption(arg)) {
       execArgv.push(arg);
