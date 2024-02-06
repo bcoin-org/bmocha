@@ -189,7 +189,7 @@ function wrapImport(file) {
   return async () => {
     const path = resolve(cwd, file);
 
-    if (imports.supported) {
+    if (await imports.supported()) {
       await imports(imports.pathToFileURL(path));
       return;
     }
@@ -835,7 +835,7 @@ async function readJS(file) {
 
   const path = resolve(cwd, file);
 
-  if (imports.supported) {
+  if (await imports.supported()) {
     const ns = await imports(imports.pathToFileURL(path));
     return ns['default'] || ns;
   }
