@@ -1491,6 +1491,7 @@ async function parseArgs() {
         break;
       }
 
+      case '--ignore':
       case '--exclude': {
         if (value)
           excludes.push(next());
