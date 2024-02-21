@@ -81,6 +81,7 @@ const HELP = `
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
+    --dry-run                report tests without executing them
     -e, --env <name=val>     set environment variable (can be specified multiple
                              times)
     --exclude <file>         a file to ignore
@@ -88,6 +89,7 @@ const HELP = `
                              (default: false)
     --extension <ext>        file extension(s) to load and/or watch
                              (default: js)
+    --fail-zero              fail test run if no tests encountered
     -f, --fgrep <string>     only run tests containing <string>
     --file <file>            include a file to be ran during the suite
     --forbid-only            fail if exclusive test(s) encountered
@@ -1282,10 +1284,12 @@ async function parseArgs() {
     console: false,
     delay: false,
     diff: true,
+    dryRun: false,
     env: Object.create(null),
     excludes: [],
     exit: false,
     extensions: [],
+    failZero: false,
     fgrep: '',
     forbidOnly: false,
     forbidPending: false,
@@ -1452,6 +1456,11 @@ async function parseArgs() {
         break;
       }
 
+      case '--dry-run': {
+        options.dryRun = value;
+        break;
+      }
+
       case '-e':
       case '--env': {
         if (!value) {
@@ -1513,6 +1522,11 @@ async function parseArgs() {
           extensions.push(ext);
         }
 
+        break;
+      }
+
+      case '--fail-zero': {
+        options.failZero = value;
         break;
       }
 
