@@ -364,6 +364,18 @@ function globify(files) {
   return out;
 }
 
+function hasExtension(file, extensions) {
+  assert(typeof file === 'string');
+  assert(Array.isArray(extensions));
+
+  for (const ext of extensions) {
+    if (file.endsWith(ext))
+      return true;
+  }
+
+  return false;
+}
+
 function flatten(files, extensions, recurse = false) {
   assert(Array.isArray(files));
   assert(Array.isArray(extensions));
@@ -420,9 +432,7 @@ function walk(files, extensions, recurse, depth, out) {
 
     // Only our specific extensions.
     if (extensions.length > 0) {
-      const ext = extname(file);
-
-      if (!extensions.includes(ext))
+      if (!hasExtension(file, extensions))
         continue;
     }
 
@@ -477,9 +487,7 @@ function getFiles(root, extensions, out = []) {
 
     // Only our specific extensions.
     if (extensions.length > 0) {
-      const ext = extname(name);
-
-      if (!extensions.includes(ext))
+      if (!hasExtension(name, extensions))
         continue;
     }
 
@@ -1975,6 +1983,9 @@ async function parseArgs() {
 
     if (!extensions.includes('.node'))
       extensions.push('.node');
+
+    if (!extensions.includes('.wasm'))
+      extensions.push('.wasm');
   }
 
   // Update options.
