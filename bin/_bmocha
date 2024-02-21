@@ -21,6 +21,7 @@ const {
   basename,
   dirname,
   extname,
+  isAbsolute,
   join,
   normalize,
   relative,
@@ -140,6 +141,9 @@ const HELP = `
     -V, --version            output the version number
     -w, --watch              watch files in the current working directory
                              (default: false)
+    --watch-files <file>     list of paths or globs to watch when --watch is set
+    --watch-ignore <file>    list of paths or globs to exclude from watching.
+                             (default: node_modules and .git)
     --why                    display why node continues to run after the suite
                              has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
@@ -196,7 +200,7 @@ function wrapImport(file) {
       return;
     }
 
-    delete require.cache[path];
+    delete require.cache[require.resolve(path)];
 
     require(path);
   };
@@ -340,7 +344,10 @@ function globify(files) {
 
   const options = {
     cwd,
-    silent: true
+    silent: true,
+    // Legacy windows behavior.
+    windowsPathsNoEscape: true,
+    allowWindowsEscape: false
   };
 
   for (const file of files) {
@@ -446,9 +453,53 @@ function exclude(files, excludes) {
   assert(Array.isArray(files));
   assert(Array.isArray(excludes));
 
+  const options = {
+    // Legacy windows behavior.
+    windowsPathsNoEscape: true,
+    allowWindowsEscape: false
+  };
+
+  excludes = excludes.map((pattern) => {
+    let stat = null;
+
+    if (isAbsolute(pattern))
+      pattern = relative(cwd, pattern);
+
+    pattern = normalize(pattern);
+
+    if (glob.hasMagic(pattern, options))
+      return pattern;
+
+    try {
+      stat = fs.statSync(pattern);
+    } catch (e) {
+      if (e.code === 'ENOENT')
+        return pattern;
+      throw e;
+    }
+
+    if (stat.isDirectory()) {
+      if (pattern[pattern.length - 1] === path.sep)
+        pattern = pattern.slice(0, -1);
+
+      return `${pattern}/**`;
+    }
+
+    return pattern;
+  });
+
+  excludes = excludes.map((pattern) => {
+    return new glob.Minimatch(pattern, options);
+  });
+
   return files.filter((name) => {
+    if (isAbsolute(name))
+      name = relative(cwd, name);
+
+    name = normalize(name);
+
     return excludes.every((pattern) => {
-      return !glob.minimatch(name, pattern);
+      return !pattern.match(name);
     });
   });
 }
@@ -466,8 +517,6 @@ function getFiles(root, extensions, out = []) {
   assert(typeof root === 'string');
   assert(Array.isArray(extensions));
   assert(Array.isArray(out));
-
-  root = resolve(cwd, root);
 
   for (const name of fs.readdirSync(root)) {
     if (name === '.git' || name === 'node_modules')
@@ -494,8 +543,8 @@ function getFiles(root, extensions, out = []) {
     // Ignore everything in
     // our own bin and lib.
     if (IN_MOCHA) {
-      if (file.startsWith(BIN_PATH)
-          || file.startsWith(LIB_PATH)) {
+      if (file.startsWith(BIN_PATH) ||
+          file.startsWith(LIB_PATH)) {
         continue;
       }
     }
@@ -1335,6 +1384,8 @@ async function parseArgs() {
     timeout: 2000,
     timeouts: true,
     watch: false,
+    watchFiles: [],
+    watchIgnore: ['.git', 'node_modules'],
     why: false,
     windows: process.platform === 'win32'
   };
@@ -1345,7 +1396,9 @@ async function parseArgs() {
     fileArgs,
     files,
     reporterOptions,
-    requires
+    requires,
+    watchFiles,
+    watchIgnore
   } = options;
 
   let i = 0;
@@ -1514,8 +1567,7 @@ async function parseArgs() {
         break;
       }
 
-      case '--extension':
-      case '--watch-extensions': {
+      case '--extension': {
         if (!value) {
           extensions.length = 0;
           break;
@@ -1826,6 +1878,30 @@ async function parseArgs() {
         break;
       }
 
+      case '--watch-files': {
+        if (!value) {
+          watchFiles.length = 0;
+          break;
+        }
+
+        for (const file of next().split(','))
+          watchFiles.push(file);
+
+        break;
+      }
+
+      case '--watch-ignore': {
+        if (!value) {
+          watchIgnore.length = 0;
+          break;
+        }
+
+        for (const file of next().split(','))
+          watchIgnore.push(file);
+
+        break;
+      }
+
       case '--why': {
         options.why = value;
         break;
@@ -1988,10 +2064,23 @@ async function parseArgs() {
       extensions.push('.wasm');
   }
 
+  if (options.watch) {
+    if (watchFiles.length === 0) {
+      watchFiles = getFiles('.', extensions);
+    } else {
+      watchFiles = globify(watchFiles);
+      watchFiles = flatten(watchFiles, [], true);
+    }
+    watchFiles = exclude(watchFiles, watchIgnore);
+    watchFiles = resolvify(watchFiles);
+    watchFiles = watchFiles.map(x => require.resolve(x));
+  }
+
   // Update options.
   options.extensions = extensions;
   options.fileArgs = fileArgs;
   options.files = files;
+  options.watchFiles = watchFiles;
 
   // Optional file stream for reporter.
   if (typeof reporterOptions.output === 'string') {
@@ -2161,8 +2250,6 @@ function catcher(reject) {
   const code = await mocha.run(funcs);
 
   if (options.watch) {
-    const files = getFiles(cwd, options.extensions);
-
     stdout.write('\x1b[?25l');
 
     bindExit((code) => {
@@ -2171,10 +2258,10 @@ function catcher(reject) {
         exit(code);
     });
 
-    watchFiles(files, async () => {
+    watchFiles(options.watchFiles, async () => {
       await mocha.abort();
 
-      for (const file of files)
+      for (const file of options.watchFiles)
         delete require.cache[file];
 
       stdout.write('\n');
