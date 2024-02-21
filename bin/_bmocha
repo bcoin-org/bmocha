@@ -44,7 +44,7 @@ const {
 } = bmocha;
 
 const cwd = process.cwd();
-const {argv, env, stdout, stderr, exit} = process;
+const {argv, env, stdin, stdout, stderr, exit} = process;
 const on = process.on.bind(process);
 const off = process.removeListener.bind(process);
 
@@ -2258,7 +2258,7 @@ function catcher(reject) {
         exit(code);
     });
 
-    watchFiles(options.watchFiles, async () => {
+    const rerun = async () => {
       await mocha.abort();
 
       for (const file of options.watchFiles)
@@ -2267,6 +2267,20 @@ function catcher(reject) {
       stdout.write('\n');
 
       await mocha.run(funcs);
+    };
+
+    watchFiles(options.watchFiles, rerun);
+
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    stdin.on('data', async (data) => {
+      if (data.trim().toLowerCase() === 'rs') {
+        try {
+          await rerun();
+        } catch (e) {
+          exception(e);
+        }
+      }
     });
 
     return -1;
