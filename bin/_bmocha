@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 const glob = require('../vendor/glob.js');
 const bmocha = require('../lib/bmocha.js');
+const {isImport} = require('../lib/esm.js');
 const imports = require('../lib/imports.js');
 
 const {
@@ -189,7 +190,7 @@ function wrapImport(file) {
   return async () => {
     const path = resolve(cwd, file);
 
-    if (await imports.supported()) {
+    if (await imports.supported() && isImport(path)) {
       await imports(imports.pathToFileURL(path));
       return;
     }
@@ -1046,7 +1047,7 @@ async function readJS(file) {
 
   const path = resolve(cwd, file);
 
-  if (await imports.supported()) {
+  if (await imports.supported() && isImport(path)) {
     const ns = await imports(imports.pathToFileURL(path));
     return ns['default'] || ns;
   }
