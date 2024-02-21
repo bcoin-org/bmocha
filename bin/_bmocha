@@ -75,7 +75,6 @@ const HELP = `
     --chrome <path>          chrome binary to use for headless mode
     -c, --colors             force enabling of colors
     -C, --no-colors          force disabling of colors
-    --compilers <ext>:<mod>  use the given module(s) to compile files
     --config <path>          path to config file (default: nearest rc file)
     --csp-source <src>       add content-security-policy source
                              (default: 'self')
@@ -1421,34 +1420,6 @@ async function parseArgs() {
         break;
       }
 
-      case '--compilers': {
-        for (const pair of next().split(',')) {
-          const index = pair.indexOf(':');
-
-          if (index === -1)
-            throw new Error(`Invalid compiler: ${pair}.`);
-
-          let [ext, mod] = [
-            pair.substring(0, index),
-            pair.substring(index + 1)
-          ];
-
-          if (ext.length === 0 || ext === '.')
-            throw new Error(`Invalid compiler extension: ${ext}.`);
-
-          if (mod.length === 0)
-            throw new Error(`Invalid compiler name: ${mod}.`);
-
-          if (ext[0] !== '.')
-            ext = '.' + ext;
-
-          requires.push(mod);
-          extensions.push(ext);
-        }
-
-        break;
-      }
-
       case '--config': {
         if (value)
           next();
@@ -1934,9 +1905,9 @@ async function parseArgs() {
     }
   }
 
-  // Set extensions to .js by default.
+  // Set extensions to .{,m,c}js by default.
   if (extensions.length === 0)
-    extensions.push('.js');
+    extensions.push('.js', '.mjs', '.cjs');
 
   // Make sure we have no duplicates.
   extensions = [...new Set(extensions)];
@@ -2156,14 +2127,6 @@ function catcher(reject) {
         else
           exception(e);
         return -1;
-      }
-    }
-
-    // Add any new extensions to be watched.
-    if (options.watch && require.extensions) {
-      for (const ext of Object.keys(require.extensions)) {
-        if (!options.extensions.includes(ext))
-          options.extensions.push(ext);
       }
     }
   }
