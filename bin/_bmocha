@@ -106,7 +106,8 @@ const HELP = `
     -i, --invert             inverts --grep and --fgrep matches (default: false)
     --inline-diffs           display actual/expected differences inline (noop)
                              (default: false)
-    --interfaces             display available interfaces
+    --list-interfaces        display available interfaces
+    --list-reporters         display available reporters
     -l, --listen             serve client-side test files (requires browserify)
                              (default: false)
     -m, --cmd <cmd>          set browser command (default: $BROWSER)
@@ -120,7 +121,6 @@ const HELP = `
     -R, --reporter <name>    specify the reporter to use (default: spec)
     -r, --require <name>     require the given module
     --recursive              include sub directories (default: false)
-    --reporters              display available reporters
     --retries <times>        set numbers of time to retry a failed test case
                              (default: 0)
     -s, --slow <ms>          "slow" test threshold in milliseconds (default: 75)
@@ -1203,8 +1203,8 @@ async function getArgs(argv) {
     switch (args[i]) {
       case '-h':
       case '--help':
-      case '--interfaces':
-      case '--reporters':
+      case '--list-interfaces':
+      case '--list-reporters':
       case '-V':
       case '--version':
         return [0, args];
@@ -1683,9 +1683,16 @@ async function parseArgs() {
         break;
       }
 
-      case '--interfaces': {
+      case '--list-interfaces': {
         ensure();
         stdout.write(INTERFACES + '\n');
+        exit(0);
+        break;
+      }
+
+      case '--list-reporters': {
+        ensure();
+        stdout.write(REPORTERS + '\n');
         exit(0);
         break;
       }
@@ -1788,13 +1795,6 @@ async function parseArgs() {
 
       case '--recursive': {
         options.recurse = value;
-        break;
-      }
-
-      case '--reporters': {
-        ensure();
-        stdout.write(REPORTERS + '\n');
-        exit(0);
         break;
       }
 
