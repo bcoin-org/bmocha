@@ -297,6 +297,22 @@ function mkdirp(path, mode) {
   }
 }
 
+function rimraf(path) {
+  if (fs.rmSync) {
+    fs.rmSync(path, {
+      force: true,
+      recursive: true,
+      maxRetries: 3
+    });
+  } else {
+    fs.rmdirSync(path, {
+      recursive: true,
+      maxBusyTries: 3,
+      maxRetries: 3
+    });
+  }
+}
+
 function exception(err, code) {
   if (err && err.stack)
     err = err.stack;
@@ -582,7 +598,8 @@ function findChrome() {
     for (const name of names) {
       for (const dir of [env.LOCALAPPDATA,
                          env.PROGRAMFILES,
-                         env['PROGRAMFILES(X86)']]) {
+                         env['PROGRAMFILES(X86)'],
+                         env.ProgramW6432]) {
         if (!dir || dir.length === 0)
           continue;
 
@@ -598,10 +615,57 @@ function findChrome() {
 
   const files = [];
 
-  for (const name of ['chromium',
-                      'chromium-browser',
+  for (const name of ['chromium-browser',
+                      'chromium',
                       'google-chrome',
                       'google-chrome-stable']) {
+    for (const dir of env.PATH.split(':')) {
+      if (dir.length === 0)
+        continue;
+
+      files.push(join(dir, name));
+    }
+  }
+
+  return findFile(files);
+}
+
+function findFirefox() {
+  // See: https://github.com/karma-runner/karma-firefox-launcher
+  if (process.platform === 'darwin') {
+    return findFile([
+      '/Applications/Firefox.app/Contents/MacOS/firefox'
+    ]);
+  }
+
+  if (process.platform === 'win32') {
+    const names = [
+      '\\Mozilla Firefox\\firefox.exe'
+    ];
+
+    const files = [];
+
+    for (const name of names) {
+      for (const dir of [env.LOCALAPPDATA,
+                         env.PROGRAMFILES,
+                         env['PROGRAMFILES(X86)'],
+                         env.ProgramW6432]) {
+        if (!dir || dir.length === 0)
+          continue;
+
+        files.push(join(dir, name));
+      }
+    }
+
+    return findFile(files);
+  }
+
+  if (!env.PATH)
+    return null;
+
+  const files = [];
+
+  for (const name of ['firefox']) {
     for (const dir of env.PATH.split(':')) {
       if (dir.length === 0)
         continue;
@@ -659,26 +723,90 @@ function bindExit(handler) {
   });
 }
 
-function runHeadless(url, chrome, extra = []) {
+function runHeadless(url, options) {
   assert(typeof url === 'string');
-  assert(chrome == null || typeof chrome === 'string');
-  assert(Array.isArray(extra));
+  assert(options && typeof options === 'object');
 
   const cp = require('child_process');
 
-  const file = chrome || findChrome();
+  let file, args;
 
-  if (!file)
-    throw new Error('Could not find chrome binary.');
+  if (options.firefox) {
+    file = options.chrome || findFirefox();
 
-  const args = [
-    '--headless',
-    '--disable-gpu',
-    '--remote-debugging-port=0',
-    ...extra,
-    url
-  ];
+    if (!file)
+      throw new Error('Could not find firefox binary.');
 
+    const profilePath = join(os.tmpdir(), 'bmocha-firefox');
+
+    rimraf(profilePath);
+    mkdirp(profilePath, 0o755);
+
+    // https://github.com/karma-runner/karma-firefox-launcher
+    const prefs = [
+      ['browser.shell.checkDefaultBrowser', false],
+      ['browser.bookmarks.restore_default_bookmarks', false],
+      ['dom.disable_open_during_load', false],
+      ['dom.max_script_run_time', 0],
+      ['dom.min_background_timeout_value', 10],
+      ['extensions.autoDisableScopes', 0],
+      ['browser.tabs.remote.autostart', false],
+      ['browser.tabs.remote.autostart.2', false],
+      ['extensions.enabledScopes', 15]
+    ];
+
+    if (options.sslIgnore)
+      prefs.push(['network.stricttransportsecurity.preloadlist', false]);
+
+    const lines = prefs.map(([key, val]) => {
+      return `user_pref("${key}", ${JSON.stringify(val)});`;
+    });
+
+    fs.writeFileSync(join(profilePath, 'prefs.js'), lines.join('\n'));
+
+    args = [
+      '-headless',
+      '-profile', profilePath,
+      '-no-remote'
+    ];
+  } else {
+    file = options.chrome || findChrome();
+
+    if (!file)
+      throw new Error('Could not find chrome binary.');
+
+    // https://github.com/karma-runner/karma-chrome-launcher
+    // https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
+    args = [
+      // '--user-data-dir=' + profilePath,
+      '--headless',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--remote-debugging-port=0',
+      '--no-default-browser-check',
+      '--no-first-run',
+      '--disable-default-apps',
+      '--disable-extensions',
+      '--disable-popup-blocking',
+      '--disable-translate',
+      '--disable-background-timer-throttling'
+    ];
+
+    if (/chrome/i.test(basename(file))) {
+      args.push(
+        '--enable-automation',
+        '--disable-renderer-backgrounding',
+        '--disable-device-discovery-notifications'
+      );
+    }
+
+    if (options.sslIgnore)
+      args.push('--ignore-certificate-errors');
+  }
+
+  args.push(url);
+
+  let exited = false;
   let output = '';
 
   const onData = (data) => {
@@ -709,6 +837,7 @@ function runHeadless(url, chrome, extra = []) {
     if (code === 0)
       code = 1;
 
+    exited = true;
     exit(code);
   };
 
@@ -736,7 +865,8 @@ function runHeadless(url, chrome, extra = []) {
 
   bindExit(() => {
     ps.removeListener('exit', onExit);
-    ps.kill('SIGTERM');
+    if (!exited)
+      ps.kill('SIGTERM');
   });
 
   return [[file, ...args], ps];
@@ -1081,6 +1211,7 @@ async function parseArgs() {
     fileArgs: [],
     files: [],
     fullTrace: false,
+    firefox: false,
     global: true,
     globals: [],
     grep: null,
@@ -1359,6 +1490,11 @@ async function parseArgs() {
 
       case '--full-trace': {
         options.fullTrace = value;
+        break;
+      }
+
+      case '--firefox': {
+        options.firefox = value;
         break;
       }
 
@@ -1878,7 +2014,6 @@ function catcher(reject) {
     const addr = await server.listen(options.port, 'localhost');
     const protocol = options.ssl ? 'https' : 'http';
     const url = `${protocol}://localhost:${addr.port}/`;
-    const chromeOptions = [];
 
     server.on('error', (err) => {
       stderr.write('\n');
@@ -1886,11 +2021,8 @@ function catcher(reject) {
       stderr.write(err.stack + '\n');
     });
 
-    if (options.sslIgnore)
-      chromeOptions.push('--ignore-certificate-errors');
-
     if (options.headless) {
-      runHeadless(url, options.chrome, chromeOptions);
+      runHeadless(url, options);
       return -1;
     }
 
