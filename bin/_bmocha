@@ -453,6 +453,9 @@ function exclude(files, excludes) {
   assert(Array.isArray(files));
   assert(Array.isArray(excludes));
 
+  if (excludes.length === 0)
+    return files;
+
   const options = {
     // Legacy windows behavior.
     windowsPathsNoEscape: true,
@@ -460,8 +463,6 @@ function exclude(files, excludes) {
   };
 
   excludes = excludes.map((pattern) => {
-    let stat = null;
-
     if (isAbsolute(pattern))
       pattern = relative(cwd, pattern);
 
@@ -469,6 +470,8 @@ function exclude(files, excludes) {
 
     if (glob.hasMagic(pattern, options))
       return pattern;
+
+    let stat = null;
 
     try {
       stat = fs.statSync(pattern);
