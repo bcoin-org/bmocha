@@ -2145,6 +2145,26 @@ function catcher(reject) {
 }
 
 /*
+ * Requires
+ */
+
+function handleRequire(file) {
+  for (const ext of ['', '.js']) {
+    if (exists(`${file}${ext}`)) {
+      file = resolve(cwd, `${file}${ext}`);
+      break;
+    }
+  }
+
+  if (isAbsolute(file) && isImport(file))
+    return imports(imports.pathToFileURL(file));
+
+  const globalRequire = require('../lib/require.js');
+
+  return globalRequire(file);
+}
+
+/*
  * Main
  */
 
@@ -2234,11 +2254,11 @@ function catcher(reject) {
     mocha.exit = exit;
 
   if (options.requires.length > 0) {
-    const globalRequire = require('../lib/require.js');
-
     for (const file of options.requires) {
+      let mod;
+
       try {
-        globalRequire(file);
+        mod = await handleRequire(file);
       } catch (e) {
         if (e.code === 'MODULE_NOT_FOUND')
           exception(e.message);
@@ -2246,6 +2266,8 @@ function catcher(reject) {
           exception(e);
         return -1;
       }
+
+      await mocha.plugin(mod, file);
     }
   }
 
