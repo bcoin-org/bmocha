@@ -94,6 +94,7 @@ const HELP = `
     --fail-zero              fail test run if no tests encountered
     -f, --fgrep <string>     only run tests containing <string>
     --file <file>            include a file to be ran during the suite
+    --firefox                use firefox instead of chrome for headless mode
     --forbid-only            fail if exclusive test(s) encountered
                              (default: false)
     --forbid-pending         fail if pending test(s) encountered
