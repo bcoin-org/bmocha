@@ -298,6 +298,13 @@ function isValueOption(arg) {
   return hasOption(valueOptions, arg, false);
 }
 
+function split(args) {
+  const out = [];
+  for (const arg of args.split(','))
+    out.push(`--${arg}`);
+  return out;
+}
+
 /*
  * Main
  */
@@ -369,6 +376,18 @@ function main() {
     if (arg === '--node' && i + 1 < process.argv.length) {
       node = process.argv[++i];
       continue;
+    }
+
+    if (arg.startsWith('--node-option=') && arg.length > 14) {
+      execArgv.push(...split(arg.substring(14)));
+      continue;
+    }
+
+    if (i + 1 < process.argv.length) {
+      if (arg === '-n' || arg === '--node-option') {
+        execArgv.push(...split(process.argv[++i]));
+        continue;
+      }
     }
 
     if (arg === '--valgrind' || arg === '--valgrind-log') {
