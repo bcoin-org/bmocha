@@ -2325,8 +2325,6 @@ function handleRequire(file) {
       await mocha.run(funcs);
     };
 
-    watchFiles(options.watchFiles, rerun);
-
     stdin.resume();
     stdin.setEncoding('utf8');
     stdin.on('data', async (data) => {
@@ -2338,6 +2336,8 @@ function handleRequire(file) {
         }
       }
     });
+
+    watchFiles(options.watchFiles, rerun);
 
     return -1;
   }
