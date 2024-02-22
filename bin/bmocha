@@ -10,15 +10,6 @@
 
 const {join} = require('path');
 
-const parts = process.version.split(/[^\d]/);
-const version = (0
-  + (parts[1] & 0xff) * 0x10000
-  + (parts[2] & 0xff) * 0x00100
-  + (parts[3] & 0xff) * 0x00001);
-
-const INSPECT = version >= 0x080000 ? 'inspect' : 'debug';
-const DEBUG = version >= 0x080000 ? 'debug' : 'inspect';
-
 /*
  * Options
  * https://github.com/nodejs/node/blob/v21.5.0/src/node_options.cc
@@ -333,12 +324,12 @@ function main() {
     // Primarily here to maintain
     // compatibility with mocha.
     switch (arg) {
-      case DEBUG:
+      case 'debug':
         if (i === 2)
-          arg = INSPECT;
+          arg = 'inspect';
         break;
       case '-d':
-        arg = `--${INSPECT}`;
+        arg = '--inspect';
         break;
       case '-gc':
         arg = '--v8-expose-gc';
@@ -357,13 +348,13 @@ function main() {
           arg = `--v8-${arg.substring(2)}`;
         else if (arg.startsWith('--trace') && !isNodeOption(arg))
           arg = `--v8-${arg.substring(2)}`;
-        else if (arg.startsWith(`--${DEBUG}`))
-          arg = `--${INSPECT}` + arg.substring(2 + DEBUG.length);
+        else if (arg.startsWith('--debug'))
+          arg = `--inspect${arg.substring(7)}`;
         break;
     }
 
-    if (i === 2 && arg === INSPECT) {
-      execArgv.unshift(INSPECT);
+    if (i === 2 && arg === 'inspect') {
+      execArgv.unshift('inspect');
       argv.push('--no-timeouts');
       continue;
     }
@@ -396,7 +387,7 @@ function main() {
       continue;
     }
 
-    if (arg.startsWith(`--${INSPECT}`))
+    if (arg.startsWith('--inspect'))
       argv.push('--no-timeouts');
 
     if (arg === '--conditions') {
