@@ -1491,7 +1491,7 @@ async function parseArgs() {
         break;
       }
 
-      case '--conditions': { // Undocumented.
+      case '--conditions': {
         options.conditions = next().split(',');
         break;
       }
