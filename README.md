@@ -21,7 +21,6 @@ $ bmocha --help
 
   Options:
 
-    --allow-multiple         allow multiple promise resolutions (default: false)
     --allow-uncaught         enable uncaught errors to propagate
                              (default: false)
     -A, --async-only         require all tests to use a callback or promise
@@ -32,22 +31,25 @@ $ bmocha --help
     --chrome <path>          chrome binary to use for headless mode
     -c, --colors             force enabling of colors
     -C, --no-colors          force disabling of colors
-    --compilers <ext>:<mod>  use the given module(s) to compile files
+    --conditions <string>    use custom conditional exports conditions
     --config <path>          path to config file (default: nearest rc file)
     --csp-source <src>       add content-security-policy source
                              (default: 'self')
     --delay                  delay initial execution of root suite
                              (default: false)
     --diff                   show diff on failure (default: true)
+    --dry-run                report tests without executing them
     -e, --env <name=val>     set environment variable (can be specified multiple
                              times)
     --exclude <file>         a file to ignore
     --exit                   force shutdown of the event loop after test run
                              (default: false)
     --extension <ext>        file extension(s) to load and/or watch
-                             (default: js)
+                             (default: js, cjs, mjs)
+    --fail-zero              fail test run if no tests encountered
     -f, --fgrep <string>     only run tests containing <string>
     --file <file>            include a file to be ran during the suite
+    --firefox                use firefox instead of chrome for headless mode
     --forbid-only            fail if exclusive test(s) encountered
                              (default: false)
     --forbid-pending         fail if pending test(s) encountered
@@ -61,21 +63,25 @@ $ bmocha --help
     -i, --invert             inverts --grep and --fgrep matches (default: false)
     --inline-diffs           display actual/expected differences inline (noop)
                              (default: false)
-    --interfaces             display available interfaces
+    -j, --jobs <number>      number of concurrent jobs for --parallel
+                             (default: number of CPU cores minus 1)
+    --list-interfaces        display available interfaces
+    --list-reporters         display available reporters
     -l, --listen             serve client-side test files (requires browserify)
                              (default: false)
     -m, --cmd <cmd>          set browser command (default: $BROWSER)
     --node <path>            path to node.js binary (default: process.execPath)
+    -n, --node-option <arg>  node or v8 option (no leading '--')
     -o, --open               open browser after serving (default: false)
     -O, --reporter-options   reporter-specific options
     --opts <path>            path to "mocha.opts" (default: ./test/mocha.opts)
     --package <path>         path to package.json for config
                              (default: ./package.json)
-    -p, --port <port>        port to listen on (default: 8080)
+    -p, --parallel           run tests in parallel (noop)
+    -P, --port <port>        port to listen on (default: 8080)
     -R, --reporter <name>    specify the reporter to use (default: spec)
     -r, --require <name>     require the given module
     --recursive              include sub directories (default: false)
-    --reporters              display available reporters
     --retries <times>        set numbers of time to retry a failed test case
                              (default: 0)
     -s, --slow <ms>          "slow" test threshold in milliseconds (default: 75)
@@ -91,9 +97,14 @@ $ bmocha --help
                              (default: 2000)
     --timeouts               enables timeouts (default: true)
     -u, --ui <name>          specify user-interface (bdd) (default: bdd)
+    --valgrind               run tests with valgrind enabled
+    --valgrind-log           run tests with valgrind enabled (write to log file)
     -V, --version            output the version number
     -w, --watch              watch files in the current working directory
                              (default: false)
+    --watch-files <file>     list of paths or globs to watch when --watch is set
+    --watch-ignore <file>    list of paths or globs to exclude from watching.
+                             (default: node_modules and .git)
     --why                    display why node continues to run after the suite
                              has ended (similar to why-is-node-running)
     -z, --console            use console in browser (default: false)
