@@ -236,7 +236,7 @@ By default, bmocha will start an HTTP server listening on a random port. To
 specify the port:
 
 ``` bash
-$ bmocha -p 8080 -m 'chromium --app=%s' test.js
+$ bmocha -P 8080 -m 'chromium --app=%s' test.js
 ```
 
 And finally, to simply start an http server without any browser action, the
