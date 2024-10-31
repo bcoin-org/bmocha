@@ -16,6 +16,7 @@
   },
   "author": "Christopher Jeffrey <chjjeffrey@gmail.com>",
   "main": "./lib/bmocha.js",
+  "type": "commonjs",
   "bin": {
     "bmocha": "./bin/bmocha",
     "_bmocha": "./bin/_bmocha"
