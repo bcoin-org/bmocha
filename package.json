@@ -27,7 +27,7 @@
     "test-browser": "./bin/bmocha -H test/mocha-test.js"
   },
   "devDependencies": {
-    "bslint-extra": "~0.0.2"
+    "bslintrc": "~0.0.3"
   },
   "engines": {
     "node": ">=8.0.0"
