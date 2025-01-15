@@ -906,6 +906,9 @@ function runHeadless(url, options) {
       );
     }
 
+    if (env.CI)
+      args.push('--no-sandbox');
+
     if (options.sslIgnore)
       args.push('--ignore-certificate-errors');
   }
